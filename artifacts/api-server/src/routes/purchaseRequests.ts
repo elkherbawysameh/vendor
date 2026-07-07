@@ -63,10 +63,13 @@ router.post("/purchase-requests", async (req, res) => {
   const parsed = CreatePurchaseRequestBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid input" });
   const requestNumber = await generateRequestNumber();
-  const [created] = await db
+  const [insertResult] = await db
     .insert(purchaseRequestsTable)
-    .values({ ...parsed.data, requestNumber, status: "pending_manager" })
-    .returning();
+    .values({ ...parsed.data, requestNumber, status: "pending_manager" });
+  const [created] = await db
+    .select()
+    .from(purchaseRequestsTable)
+    .where(eq(purchaseRequestsTable.id, insertResult.insertId));
   await db.insert(requestActivitiesTable).values({
     requestId: created.id,
     actorEmail: created.requesterEmail,
@@ -107,7 +110,7 @@ router.post("/purchase-requests/:id/approve", async (req, res) => {
     return res.status(400).json({ error: "Cannot approve in current status" });
   }
 
-  const [updated] = await db
+  await db
     .update(purchaseRequestsTable)
     .set({
       status: newStatus,
@@ -115,8 +118,11 @@ router.post("/purchase-requests/:id/approve", async (req, res) => {
       accountsNote: newStatus === "approved_by_accounts" ? (body.data?.note ?? undefined) : row.accountsNote,
       updatedAt: new Date(),
     })
-    .where(eq(purchaseRequestsTable.id, params.data.id))
-    .returning();
+    .where(eq(purchaseRequestsTable.id, params.data.id));
+  const [updated] = await db
+    .select()
+    .from(purchaseRequestsTable)
+    .where(eq(purchaseRequestsTable.id, params.data.id));
 
   await db.insert(requestActivitiesTable).values({
     requestId: params.data.id,
@@ -147,7 +153,7 @@ router.post("/purchase-requests/:id/reject", async (req, res) => {
     return res.status(400).json({ error: "Cannot reject in current status" });
   }
 
-  const [updated] = await db
+  await db
     .update(purchaseRequestsTable)
     .set({
       status: newStatus,
@@ -155,8 +161,11 @@ router.post("/purchase-requests/:id/reject", async (req, res) => {
       accountsNote: newStatus === "rejected_by_accounts" ? (body.data?.note ?? undefined) : row.accountsNote,
       updatedAt: new Date(),
     })
-    .where(eq(purchaseRequestsTable.id, params.data.id))
-    .returning();
+    .where(eq(purchaseRequestsTable.id, params.data.id));
+  const [updated] = await db
+    .select()
+    .from(purchaseRequestsTable)
+    .where(eq(purchaseRequestsTable.id, params.data.id));
 
   await db.insert(requestActivitiesTable).values({
     requestId: params.data.id,
@@ -187,7 +196,7 @@ router.post("/purchase-requests/:id/clarify", async (req, res) => {
     return res.status(400).json({ error: "Cannot request clarification in current status" });
   }
 
-  const [updated] = await db
+  await db
     .update(purchaseRequestsTable)
     .set({
       status: newStatus,
@@ -195,8 +204,11 @@ router.post("/purchase-requests/:id/clarify", async (req, res) => {
       clarificationAnswer: null,
       updatedAt: new Date(),
     })
-    .where(eq(purchaseRequestsTable.id, params.data.id))
-    .returning();
+    .where(eq(purchaseRequestsTable.id, params.data.id));
+  const [updated] = await db
+    .select()
+    .from(purchaseRequestsTable)
+    .where(eq(purchaseRequestsTable.id, params.data.id));
 
   await db.insert(requestActivitiesTable).values({
     requestId: params.data.id,
@@ -239,11 +251,14 @@ router.post("/purchase-requests/:id/respond", async (req, res) => {
   if (updatedReason) updateData.reason = updatedReason;
   if (updatedManagerEmail) updateData.managerEmail = updatedManagerEmail;
 
-  const [updated] = await db
+  await db
     .update(purchaseRequestsTable)
     .set(updateData)
-    .where(eq(purchaseRequestsTable.id, id))
-    .returning();
+    .where(eq(purchaseRequestsTable.id, id));
+  const [updated] = await db
+    .select()
+    .from(purchaseRequestsTable)
+    .where(eq(purchaseRequestsTable.id, id));
 
   await db.insert(requestActivitiesTable).values({
     requestId: id,
@@ -269,11 +284,14 @@ router.post("/purchase-requests/:id/execute", async (req, res) => {
   if (row.status !== "approved_by_accounts") return res.status(400).json({ error: "Request not approved for execution" });
 
   const now = new Date();
-  const [updated] = await db
+  await db
     .update(purchaseRequestsTable)
     .set({ status: "executed", finalAmount, executedAt: now, executedBy: executedByEmail, updatedAt: now })
-    .where(eq(purchaseRequestsTable.id, id))
-    .returning();
+    .where(eq(purchaseRequestsTable.id, id));
+  const [updated] = await db
+    .select()
+    .from(purchaseRequestsTable)
+    .where(eq(purchaseRequestsTable.id, id));
 
   await db.insert(vendorTransactionsTable).values({
     vendorId: row.vendorId,
@@ -308,7 +326,7 @@ router.post("/purchase-requests/:id/reorder", async (req, res) => {
   const [row] = await db.select().from(purchaseRequestsTable).where(eq(purchaseRequestsTable.id, id));
   if (!row) return res.status(404).json({ error: "Request not found" });
   const requestNumber = await generateRequestNumber();
-  const [created] = await db
+  const [insertResult] = await db
     .insert(purchaseRequestsTable)
     .values({
       requestNumber,
@@ -321,8 +339,11 @@ router.post("/purchase-requests/:id/reorder", async (req, res) => {
       managerEmail,
       status: "pending_manager",
       estimatedAmount: estimatedAmount ?? undefined,
-    })
-    .returning();
+    });
+  const [created] = await db
+    .select()
+    .from(purchaseRequestsTable)
+    .where(eq(purchaseRequestsTable.id, insertResult.insertId));
   await db.insert(requestActivitiesTable).values({
     requestId: created.id,
     actorEmail: requesterEmail,

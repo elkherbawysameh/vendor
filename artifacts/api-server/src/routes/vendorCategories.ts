@@ -22,7 +22,11 @@ router.get("/vendor-categories", async (req, res) => {
 router.post("/vendor-categories", async (req, res) => {
   const parsed = CreateVendorCategoryBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid input" });
-  const [category] = await db.insert(vendorCategoriesTable).values(parsed.data).returning();
+  const [result] = await db.insert(vendorCategoriesTable).values(parsed.data);
+  const [category] = await db
+    .select()
+    .from(vendorCategoriesTable)
+    .where(eq(vendorCategoriesTable.id, result.insertId));
   return res.status(201).json(category);
 });
 
@@ -40,12 +44,10 @@ router.put("/vendor-categories/:id", async (req, res) => {
   const params = UpdateVendorCategoryParams.safeParse({ id: Number(req.params.id) });
   const body = UpdateVendorCategoryBody.safeParse(req.body);
   if (!params.success || !body.success) return res.status(400).json({ error: "Invalid input" });
-  const [updated] = await db
-    .update(vendorCategoriesTable)
-    .set(body.data)
-    .where(eq(vendorCategoriesTable.id, params.data.id))
-    .returning();
-  if (!updated) return res.status(404).json({ error: "Category not found" });
+  const [existing] = await db.select().from(vendorCategoriesTable).where(eq(vendorCategoriesTable.id, params.data.id));
+  if (!existing) return res.status(404).json({ error: "Category not found" });
+  await db.update(vendorCategoriesTable).set(body.data).where(eq(vendorCategoriesTable.id, params.data.id));
+  const [updated] = await db.select().from(vendorCategoriesTable).where(eq(vendorCategoriesTable.id, params.data.id));
   return res.json(updated);
 });
 

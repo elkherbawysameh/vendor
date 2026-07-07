@@ -1,10 +1,10 @@
-import { pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { mysqlTable, serial, varchar, text, timestamp } from "drizzle-orm/mysql-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-export const vendorCategoriesTable = pgTable("vendor_categories", {
+export const vendorCategoriesTable = mysqlTable("vendor_categories", {
   id: serial("id").primaryKey(),
-  name: text("name").notNull().unique(),
+  name: varchar("name", { length: 255 }).notNull().unique(),
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

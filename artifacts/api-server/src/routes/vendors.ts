@@ -7,7 +7,7 @@ import {
   vendorTransactionsTable,
   vendorCategoriesTable,
 } from "@workspace/db";
-import { eq, inArray, ilike, sql, and } from "drizzle-orm";
+import { eq, inArray, like, sql, and } from "drizzle-orm";
 import {
   CreateVendorBody,
   UpdateVendorBody,
@@ -76,7 +76,7 @@ router.get("/vendors", async (req, res) => {
     vendors = await db
       .select()
       .from(vendorsTable)
-      .where(and(inArray(vendorsTable.id, vendorIds), ilike(vendorsTable.companyName, `%${search}%`)))
+      .where(and(inArray(vendorsTable.id, vendorIds), like(vendorsTable.companyName, `%${search}%`)))
       .orderBy(vendorsTable.companyName);
   } else if (vendorIds) {
     vendors = await db
@@ -88,7 +88,7 @@ router.get("/vendors", async (req, res) => {
     vendors = await db
       .select()
       .from(vendorsTable)
-      .where(ilike(vendorsTable.companyName, `%${search}%`))
+      .where(like(vendorsTable.companyName, `%${search}%`))
       .orderBy(vendorsTable.companyName);
   } else {
     vendors = await db.select().from(vendorsTable).orderBy(vendorsTable.companyName);
@@ -217,7 +217,8 @@ router.post("/vendors", async (req, res) => {
   const parsed = CreateVendorBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid input" });
   const { categoryIds, ...vendorData } = parsed.data as any;
-  const [vendor] = await db.insert(vendorsTable).values(vendorData).returning();
+  const [insertResult] = await db.insert(vendorsTable).values(vendorData);
+  const [vendor] = await db.select().from(vendorsTable).where(eq(vendorsTable.id, insertResult.insertId));
   if (categoryIds?.length) {
     await db.insert(vendorCategoryLinksTable).values(
       (categoryIds as number[]).map((cid: number) => ({ vendorId: vendor.id, categoryId: cid }))
@@ -232,12 +233,10 @@ router.put("/vendors/:id", async (req, res) => {
   const body = UpdateVendorBody.safeParse(req.body);
   if (!params.success || !body.success) return res.status(400).json({ error: "Invalid input" });
   const { categoryIds, ...vendorData } = body.data as any;
-  const [updated] = await db
-    .update(vendorsTable)
-    .set(vendorData)
-    .where(eq(vendorsTable.id, params.data.id))
-    .returning();
-  if (!updated) return res.status(404).json({ error: "Vendor not found" });
+  const [existing] = await db.select().from(vendorsTable).where(eq(vendorsTable.id, params.data.id));
+  if (!existing) return res.status(404).json({ error: "Vendor not found" });
+  await db.update(vendorsTable).set(vendorData).where(eq(vendorsTable.id, params.data.id));
+  const [updated] = await db.select().from(vendorsTable).where(eq(vendorsTable.id, params.data.id));
   if (categoryIds !== undefined) {
     await db.delete(vendorCategoryLinksTable).where(eq(vendorCategoryLinksTable.vendorId, params.data.id));
     if ((categoryIds as number[]).length > 0) {
@@ -284,10 +283,11 @@ router.post("/vendors/:vendorId/documents", async (req, res) => {
     fileUrl: body.data.fileUrl ?? undefined,
     notes: body.data.notes ?? undefined,
   };
+  const [insertResult] = await db.insert(vendorDocumentsTable).values(docData);
   const [doc] = await db
-    .insert(vendorDocumentsTable)
-    .values(docData)
-    .returning();
+    .select()
+    .from(vendorDocumentsTable)
+    .where(eq(vendorDocumentsTable.id, insertResult.insertId));
   return res.status(201).json(doc);
 });
 
@@ -306,12 +306,10 @@ router.put("/vendors/:vendorId/documents/:docId", async (req, res) => {
     fileUrl: body.data.fileUrl ?? undefined,
     notes: body.data.notes ?? undefined,
   };
-  const [updated] = await db
-    .update(vendorDocumentsTable)
-    .set(updateData)
-    .where(eq(vendorDocumentsTable.id, params.data.docId))
-    .returning();
-  if (!updated) return res.status(404).json({ error: "Document not found" });
+  const [existing] = await db.select().from(vendorDocumentsTable).where(eq(vendorDocumentsTable.id, params.data.docId));
+  if (!existing) return res.status(404).json({ error: "Document not found" });
+  await db.update(vendorDocumentsTable).set(updateData).where(eq(vendorDocumentsTable.id, params.data.docId));
+  const [updated] = await db.select().from(vendorDocumentsTable).where(eq(vendorDocumentsTable.id, params.data.docId));
   return res.json(updated);
 });
 

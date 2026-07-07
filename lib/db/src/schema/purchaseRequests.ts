@@ -1,20 +1,20 @@
-import { pgTable, serial, text, timestamp, integer, real } from "drizzle-orm/pg-core";
+import { mysqlTable, serial, varchar, text, timestamp, int, double } from "drizzle-orm/mysql-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-export const purchaseRequestsTable = pgTable("purchase_requests", {
+export const purchaseRequestsTable = mysqlTable("purchase_requests", {
   id: serial("id").primaryKey(),
-  requestNumber: text("request_number").notNull().unique(),
+  requestNumber: varchar("request_number", { length: 255 }).notNull().unique(),
   requesterEmail: text("requester_email").notNull(),
   department: text("department").notNull(),
   itemDescription: text("item_description").notNull(),
-  quantity: integer("quantity").notNull(),
-  vendorId: integer("vendor_id").notNull(),
+  quantity: int("quantity").notNull(),
+  vendorId: int("vendor_id").notNull(),
   reason: text("reason").notNull(),
   managerEmail: text("manager_email").notNull(),
-  status: text("status").notNull().default("pending_manager"),
-  estimatedAmount: real("estimated_amount"),
-  finalAmount: real("final_amount"),
+  status: varchar("status", { length: 64 }).notNull().default("pending_manager"),
+  estimatedAmount: double("estimated_amount"),
+  finalAmount: double("final_amount"),
   managerNote: text("manager_note"),
   accountsNote: text("accounts_note"),
   clarificationQuestion: text("clarification_question"),
@@ -25,9 +25,9 @@ export const purchaseRequestsTable = pgTable("purchase_requests", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const requestActivitiesTable = pgTable("request_activities", {
+export const requestActivitiesTable = mysqlTable("request_activities", {
   id: serial("id").primaryKey(),
-  requestId: integer("request_id").notNull(),
+  requestId: int("request_id").notNull(),
   actorEmail: text("actor_email").notNull(),
   action: text("action").notNull(),
   note: text("note"),

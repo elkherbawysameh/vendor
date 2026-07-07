@@ -72,10 +72,22 @@ export default defineConfig({
     fs: {
       strict: true,
     },
+    proxy: {
+      '/api': {
+        target: process.env.API_SERVER_URL || 'http://localhost:8080',
+        changeOrigin: true,
+      },
+    },
   },
   preview: {
     port,
     host: '0.0.0.0',
     allowedHosts: true,
+    proxy: {
+      '/api': {
+        target: process.env.API_SERVER_URL || 'http://localhost:8080',
+        changeOrigin: true,
+      },
+    },
   },
 });

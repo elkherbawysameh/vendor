@@ -1,8 +1,8 @@
-import { pgTable, serial, text, timestamp, integer, real } from "drizzle-orm/pg-core";
+import { mysqlTable, serial, text, timestamp, int, double } from "drizzle-orm/mysql-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-export const vendorsTable = pgTable("vendors", {
+export const vendorsTable = mysqlTable("vendors", {
   id: serial("id").primaryKey(),
   companyName: text("company_name").notNull(),
   contactPerson: text("contact_person"),
@@ -18,15 +18,15 @@ export const vendorsTable = pgTable("vendors", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const vendorCategoryLinksTable = pgTable("vendor_category_links", {
+export const vendorCategoryLinksTable = mysqlTable("vendor_category_links", {
   id: serial("id").primaryKey(),
-  vendorId: integer("vendor_id").notNull(),
-  categoryId: integer("category_id").notNull(),
+  vendorId: int("vendor_id").notNull(),
+  categoryId: int("category_id").notNull(),
 });
 
-export const vendorDocumentsTable = pgTable("vendor_documents", {
+export const vendorDocumentsTable = mysqlTable("vendor_documents", {
   id: serial("id").primaryKey(),
-  vendorId: integer("vendor_id").notNull(),
+  vendorId: int("vendor_id").notNull(),
   documentType: text("document_type").notNull(),
   documentNumber: text("document_number"),
   expiryDate: text("expiry_date"),
@@ -35,12 +35,12 @@ export const vendorDocumentsTable = pgTable("vendor_documents", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const vendorTransactionsTable = pgTable("vendor_transactions", {
+export const vendorTransactionsTable = mysqlTable("vendor_transactions", {
   id: serial("id").primaryKey(),
-  vendorId: integer("vendor_id").notNull(),
-  purchaseRequestId: integer("purchase_request_id").notNull(),
-  amount: real("amount").notNull(),
-  quantity: integer("quantity").notNull(),
+  vendorId: int("vendor_id").notNull(),
+  purchaseRequestId: int("purchase_request_id").notNull(),
+  amount: double("amount").notNull(),
+  quantity: int("quantity").notNull(),
   executedAt: timestamp("executed_at").defaultNow().notNull(),
   executedBy: text("executed_by").notNull(),
   notes: text("notes"),
