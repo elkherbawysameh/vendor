@@ -1,22 +1,35 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Qoyod Vendor & Purchase Management System API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication
+  - name: vendors
+    description: Vendor management
+  - name: vendor-categories
+    description: Vendor category management
+  - name: vendor-documents
+    description: Vendor document management
+  - name: purchase-requests
+    description: Purchase request workflow
+  - name: dashboard
+    description: Dashboard statistics
+  - name: reports
+    description: Reporting
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +37,746 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── Auth ──────────────────────────────────────────────────────────────────
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login with email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Logged in successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "400":
+          description: Invalid email
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: Get current authenticated user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout
+      responses:
+        "200":
+          description: Logged out
+
+  # ── Vendor Categories ─────────────────────────────────────────────────────
+  /vendor-categories:
+    get:
+      operationId: listVendorCategories
+      tags: [vendor-categories]
+      summary: List all vendor categories
+      responses:
+        "200":
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VendorCategory"
+    post:
+      operationId: createVendorCategory
+      tags: [vendor-categories]
+      summary: Create a vendor category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorCategoryInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorCategory"
+
+  /vendor-categories/{id}:
+    get:
+      operationId: getVendorCategory
+      tags: [vendor-categories]
+      summary: Get a vendor category
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorCategory"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: updateVendorCategory
+      tags: [vendor-categories]
+      summary: Update a vendor category
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorCategoryInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorCategory"
+    delete:
+      operationId: deleteVendorCategory
+      tags: [vendor-categories]
+      summary: Delete a vendor category
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Vendors ───────────────────────────────────────────────────────────────
+  /vendors:
+    get:
+      operationId: listVendors
+      tags: [vendors]
+      summary: List all vendors
+      parameters:
+        - name: categoryId
+          in: query
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of vendors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Vendor"
+    post:
+      operationId: createVendor
+      tags: [vendors]
+      summary: Create a vendor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+
+  /vendors/summary:
+    get:
+      operationId: getVendorSummary
+      tags: [vendors]
+      summary: Get vendor spending dashboard summary
+      responses:
+        "200":
+          description: Vendor spending summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorDashboard"
+
+  /vendors/export:
+    get:
+      operationId: exportVendors
+      tags: [vendors]
+      summary: Export vendors as CSV
+      responses:
+        "200":
+          description: CSV file
+          content:
+            text/csv:
+              schema:
+                type: string
+
+  /vendors/import:
+    post:
+      operationId: importVendors
+      tags: [vendors]
+      summary: Import vendors from CSV
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorImport"
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportResult"
+
+  /vendors/expiring-documents:
+    get:
+      operationId: getExpiringDocuments
+      tags: [vendors]
+      summary: Get vendors with expiring documents (within 30 days)
+      responses:
+        "200":
+          description: Expiring document alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ExpiringDocument"
+
+  /vendors/{id}:
+    get:
+      operationId: getVendor
+      tags: [vendors]
+      summary: Get a vendor
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Vendor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: updateVendor
+      tags: [vendors]
+      summary: Update a vendor
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+    delete:
+      operationId: deleteVendor
+      tags: [vendors]
+      summary: Delete a vendor
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Vendor Documents ──────────────────────────────────────────────────────
+  /vendors/{vendorId}/documents:
+    get:
+      operationId: listVendorDocuments
+      tags: [vendor-documents]
+      summary: List documents for a vendor
+      parameters:
+        - name: vendorId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Documents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VendorDocument"
+    post:
+      operationId: createVendorDocument
+      tags: [vendor-documents]
+      summary: Add a document to a vendor
+      parameters:
+        - name: vendorId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorDocumentInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorDocument"
+
+  /vendors/{vendorId}/documents/{docId}:
+    put:
+      operationId: updateVendorDocument
+      tags: [vendor-documents]
+      summary: Update a vendor document
+      parameters:
+        - name: vendorId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorDocumentInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorDocument"
+    delete:
+      operationId: deleteVendorDocument
+      tags: [vendor-documents]
+      summary: Delete a vendor document
+      parameters:
+        - name: vendorId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Purchase Requests ─────────────────────────────────────────────────────
+  /purchase-requests:
+    get:
+      operationId: listPurchaseRequests
+      tags: [purchase-requests]
+      summary: List purchase requests (filtered by role)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: vendorId
+          in: query
+          schema:
+            type: integer
+        - name: requesterEmail
+          in: query
+          schema:
+            type: string
+        - name: managerEmail
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of purchase requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PurchaseRequest"
+    post:
+      operationId: createPurchaseRequest
+      tags: [purchase-requests]
+      summary: Submit a new purchase request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PurchaseRequestInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseRequest"
+
+  /purchase-requests/{id}:
+    get:
+      operationId: getPurchaseRequest
+      tags: [purchase-requests]
+      summary: Get a purchase request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Purchase request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseRequest"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /purchase-requests/{id}/approve:
+    post:
+      operationId: approvePurchaseRequest
+      tags: [purchase-requests]
+      summary: Approve a purchase request (manager or accounts manager)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActionInput"
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseRequest"
+
+  /purchase-requests/{id}/reject:
+    post:
+      operationId: rejectPurchaseRequest
+      tags: [purchase-requests]
+      summary: Reject a purchase request (manager or accounts manager)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActionInput"
+      responses:
+        "200":
+          description: Rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseRequest"
+
+  /purchase-requests/{id}/clarify:
+    post:
+      operationId: clarifiyPurchaseRequest
+      tags: [purchase-requests]
+      summary: Request clarification from employee
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActionInput"
+      responses:
+        "200":
+          description: Clarification requested
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseRequest"
+
+  /purchase-requests/{id}/respond:
+    post:
+      operationId: respondToClarification
+      tags: [purchase-requests]
+      summary: Employee responds to clarification and resubmits
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClarificationResponse"
+      responses:
+        "200":
+          description: Resubmitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseRequest"
+
+  /purchase-requests/{id}/execute:
+    post:
+      operationId: executePurchaseRequest
+      tags: [purchase-requests]
+      summary: Accounts employee marks request as executed
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExecuteInput"
+      responses:
+        "200":
+          description: Executed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseRequest"
+
+  /purchase-requests/{id}/reorder:
+    post:
+      operationId: reorderPurchaseRequest
+      tags: [purchase-requests]
+      summary: Reorder from same vendor (creates new request based on existing)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReorderInput"
+      responses:
+        "201":
+          description: New request created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseRequest"
+
+  /purchase-requests/{id}/activities:
+    get:
+      operationId: listPurchaseRequestActivities
+      tags: [purchase-requests]
+      summary: Get activity/comment history for a request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Activities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RequestActivity"
+
+  # ── Dashboard ─────────────────────────────────────────────────────────────
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Overall dashboard statistics
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/vendor-spending:
+    get:
+      operationId: getVendorSpending
+      tags: [dashboard]
+      summary: Spending per vendor for dashboard chart
+      responses:
+        "200":
+          description: Vendor spending data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VendorSpending"
+
+  /dashboard/recent-activity:
+    get:
+      operationId: getRecentActivity
+      tags: [dashboard]
+      summary: Recent purchase request activity feed
+      responses:
+        "200":
+          description: Recent activity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PurchaseRequest"
+
+  /dashboard/status-breakdown:
+    get:
+      operationId: getStatusBreakdown
+      tags: [dashboard]
+      summary: Purchase requests count grouped by status
+      responses:
+        "200":
+          description: Status breakdown
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StatusCount"
+
+  # ── Reports ───────────────────────────────────────────────────────────────
+  /reports/purchase-requests:
+    get:
+      operationId: getReport
+      tags: [reports]
+      summary: Download purchase request report
+      parameters:
+        - name: vendorId
+          in: query
+          schema:
+            type: integer
+        - name: month
+          in: query
+          schema:
+            type: string
+            description: "YYYY-MM"
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [summary, detailed]
+            default: detailed
+      responses:
+        "200":
+          description: Report data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportData"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +784,450 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    # ── Auth ───────────────────────────────────────────────────────────────
+    LoginInput:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+
+    AuthUser:
+      type: object
+      required: [email, role]
+      properties:
+        email:
+          type: string
+        role:
+          type: string
+          enum: [admin, accounts_manager, accounts_employee, employee]
+        name:
+          type: ["string", "null"]
+
+    # ── Vendor Category ────────────────────────────────────────────────────
+    VendorCategory:
+      type: object
+      required: [id, name, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    VendorCategoryInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: string
+
+    # ── Vendor ─────────────────────────────────────────────────────────────
+    Vendor:
+      type: object
+      required: [id, companyName, createdAt]
+      properties:
+        id:
+          type: integer
+        companyName:
+          type: string
+        contactPerson:
+          type: ["string", "null"]
+        contactEmail:
+          type: ["string", "null"]
+        contactPhone:
+          type: ["string", "null"]
+        bankName:
+          type: ["string", "null"]
+        bankAccountName:
+          type: ["string", "null"]
+        bankAccountNumber:
+          type: ["string", "null"]
+        iban:
+          type: ["string", "null"]
+        swiftCode:
+          type: ["string", "null"]
+        bankBranch:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        categoryIds:
+          type: array
+          items:
+            type: integer
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/VendorCategory"
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/VendorDocument"
+        totalSpent:
+          type: ["number", "null"]
+        transactionCount:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    VendorInput:
+      type: object
+      required: [companyName]
+      properties:
+        companyName:
+          type: string
+          minLength: 1
+        contactPerson:
+          type: string
+        contactEmail:
+          type: string
+        contactPhone:
+          type: string
+        bankName:
+          type: string
+        bankAccountName:
+          type: string
+        bankAccountNumber:
+          type: string
+        iban:
+          type: string
+        swiftCode:
+          type: string
+        bankBranch:
+          type: string
+        notes:
+          type: string
+        categoryIds:
+          type: array
+          items:
+            type: integer
+
+    VendorDashboard:
+      type: object
+      required: [totalVendors, totalSpent, activeVendors]
+      properties:
+        totalVendors:
+          type: integer
+        totalSpent:
+          type: number
+        activeVendors:
+          type: integer
+        expiringDocumentsCount:
+          type: integer
+
+    VendorImport:
+      type: object
+      required: [csvData]
+      properties:
+        csvData:
+          type: string
+
+    ImportResult:
+      type: object
+      required: [imported, errors]
+      properties:
+        imported:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: string
+
+    # ── Vendor Document ────────────────────────────────────────────────────
+    VendorDocument:
+      type: object
+      required: [id, vendorId, documentType, createdAt]
+      properties:
+        id:
+          type: integer
+        vendorId:
+          type: integer
+        documentType:
+          type: string
+        documentNumber:
+          type: ["string", "null"]
+        expiryDate:
+          type: ["string", "null"]
+          format: date
+        fileUrl:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    VendorDocumentInput:
+      type: object
+      required: [documentType]
+      properties:
+        documentType:
+          type: string
+          minLength: 1
+        documentNumber:
+          type: string
+        expiryDate:
+          type: string
+          format: date
+        fileUrl:
+          type: string
+        notes:
+          type: string
+
+    ExpiringDocument:
+      type: object
+      required: [vendorId, vendorName, documentType, expiryDate, daysUntilExpiry]
+      properties:
+        vendorId:
+          type: integer
+        vendorName:
+          type: string
+        documentType:
+          type: string
+        expiryDate:
+          type: string
+          format: date
+        daysUntilExpiry:
+          type: integer
+
+    # ── Purchase Request ───────────────────────────────────────────────────
+    PurchaseRequest:
+      type: object
+      required: [id, requestNumber, requesterEmail, department, itemDescription, quantity, vendorId, reason, managerEmail, status, createdAt]
+      properties:
+        id:
+          type: integer
+        requestNumber:
+          type: string
+        requesterEmail:
+          type: string
+        department:
+          type: string
+        itemDescription:
+          type: string
+        quantity:
+          type: integer
+        vendorId:
+          type: integer
+        vendor:
+          $ref: "#/components/schemas/Vendor"
+        reason:
+          type: string
+        managerEmail:
+          type: string
+        status:
+          type: string
+          enum:
+            - pending_manager
+            - pending_clarification_employee_manager
+            - pending_clarification_employee_accounts
+            - approved_by_manager
+            - rejected_by_manager
+            - pending_accounts
+            - approved_by_accounts
+            - rejected_by_accounts
+            - executed
+        estimatedAmount:
+          type: ["number", "null"]
+        finalAmount:
+          type: ["number", "null"]
+        managerNote:
+          type: ["string", "null"]
+        accountsNote:
+          type: ["string", "null"]
+        clarificationQuestion:
+          type: ["string", "null"]
+        clarificationAnswer:
+          type: ["string", "null"]
+        executedAt:
+          type: ["string", "null"]
+          format: date-time
+        executedBy:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PurchaseRequestInput:
+      type: object
+      required: [requesterEmail, department, itemDescription, quantity, vendorId, reason, managerEmail]
+      properties:
+        requesterEmail:
+          type: string
+          format: email
+        department:
+          type: string
+          minLength: 1
+        itemDescription:
+          type: string
+          minLength: 1
+        quantity:
+          type: integer
+          minimum: 1
+        vendorId:
+          type: integer
+        reason:
+          type: string
+          minLength: 1
+        managerEmail:
+          type: string
+          format: email
+        estimatedAmount:
+          type: number
+
+    ActionInput:
+      type: object
+      properties:
+        note:
+          type: string
+
+    ClarificationResponse:
+      type: object
+      required: [answer]
+      properties:
+        answer:
+          type: string
+          minLength: 1
+        updatedQuantity:
+          type: integer
+        updatedReason:
+          type: string
+        updatedManagerEmail:
+          type: string
+
+    ExecuteInput:
+      type: object
+      required: [executedByEmail, finalAmount]
+      properties:
+        executedByEmail:
+          type: string
+          format: email
+        finalAmount:
+          type: number
+        notes:
+          type: string
+
+    ReorderInput:
+      type: object
+      required: [requesterEmail, quantity, reason, managerEmail]
+      properties:
+        requesterEmail:
+          type: string
+          format: email
+        quantity:
+          type: integer
+          minimum: 1
+        reason:
+          type: string
+        managerEmail:
+          type: string
+          format: email
+        estimatedAmount:
+          type: number
+
+    RequestActivity:
+      type: object
+      required: [id, requestId, actorEmail, action, createdAt]
+      properties:
+        id:
+          type: integer
+        requestId:
+          type: integer
+        actorEmail:
+          type: string
+        action:
+          type: string
+        note:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    # ── Dashboard ──────────────────────────────────────────────────────────
+    DashboardStats:
+      type: object
+      required: [totalRequests, pendingRequests, approvedRequests, rejectedRequests, executedRequests, totalVendors, totalSpent]
+      properties:
+        totalRequests:
+          type: integer
+        pendingRequests:
+          type: integer
+        approvedRequests:
+          type: integer
+        rejectedRequests:
+          type: integer
+        executedRequests:
+          type: integer
+        totalVendors:
+          type: integer
+        totalSpent:
+          type: number
+        expiringDocuments:
+          type: integer
+
+    VendorSpending:
+      type: object
+      required: [vendorId, vendorName, totalSpent, transactionCount]
+      properties:
+        vendorId:
+          type: integer
+        vendorName:
+          type: string
+        totalSpent:
+          type: number
+        transactionCount:
+          type: integer
+
+    StatusCount:
+      type: object
+      required: [status, count]
+      properties:
+        status:
+          type: string
+        count:
+          type: integer
+
+    # ── Reports ────────────────────────────────────────────────────────────
+    ReportData:
+      type: object
+      required: [requests, totalAmount, generatedAt]
+      properties:
+        requests:
+          type: array
+          items:
+            $ref: "#/components/schemas/PurchaseRequest"
+        totalAmount:
+          type: number
+        generatedAt:
+          type: string
+          format: date-time
+        filters:
+          type: object
+          properties:
+            vendorId:
+              type: ["integer", "null"]
+            month:
+              type: ["string", "null"]
+            type:
+              type: string

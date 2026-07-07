@@ -1,0 +1,1 @@
+- [Qoyod system design](qoyod-system.md) — procurement system auth, roles, workflow states, and key decisions

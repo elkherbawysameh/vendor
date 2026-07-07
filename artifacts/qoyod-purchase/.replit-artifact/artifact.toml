@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "Qoyod Vendor & Purchase System"
+version = "1.0.0"
+id = "artifacts/qoyod-purchase"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21024
+
+[services.development]
+run = "pnpm --filter @workspace/qoyod-purchase run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/qoyod-purchase", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/qoyod-purchase/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21024"
+BASE_PATH = "/"
