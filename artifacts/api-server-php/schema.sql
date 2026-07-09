@@ -93,3 +93,27 @@ CREATE TABLE IF NOT EXISTS request_activities (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_ra_request (request_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Roles are looked up from this table instead of being hardcoded in code.
+-- Any @qoyod.com email that logs in but has no row here defaults to "employee".
+CREATE TABLE IF NOT EXISTS users (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  role VARCHAR(32) NOT NULL DEFAULT 'employee',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO users (email, role) VALUES
+  ('s.elkherbawy@qoyod.com', 'admin'),
+  ('balghafli@qoyod.com', 'accounts_manager'),
+  ('ohamdy@qoyod.com', 'accounts_employee')
+ON DUPLICATE KEY UPDATE role = VALUES(role);
+
+CREATE TABLE IF NOT EXISTS policies (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  file_name TEXT NOT NULL,
+  file_url TEXT NOT NULL,
+  uploaded_by TEXT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

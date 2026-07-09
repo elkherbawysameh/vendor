@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';
-import { Route, Switch, Router as WouterRouter } from 'wouter';
+import { Route, Switch, Router as WouterRouter, Link } from 'wouter';
 import { AuthProvider } from '@/hooks/use-auth';
 import AppLayout from '@/components/layout/AppLayout';
 
@@ -15,6 +15,8 @@ import NewVendorPage from '@/pages/vendors-new';
 import VendorDetail from '@/pages/vendors-[id]';
 import CategoriesPage from '@/pages/categories';
 import ReportsPage from '@/pages/reports';
+import PoliciesPage from '@/pages/policies';
+import UsersPage from '@/pages/users';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -30,7 +32,7 @@ function NotFound() {
     <div className="flex flex-col items-center justify-center h-[70vh] text-center">
       <h2 className="text-4xl font-bold text-primary mb-2">404</h2>
       <p className="text-muted-foreground text-lg mb-6">The page you're looking for doesn't exist.</p>
-      <a href="/" className="text-primary hover:underline">Return to Dashboard</a>
+      <Link href="/" className="text-primary hover:underline">Return to Dashboard</Link>
     </div>
   );
 }
@@ -51,6 +53,8 @@ function Router() {
             <Route path="/vendors/:id" component={VendorDetail} />
             <Route path="/categories" component={CategoriesPage} />
             <Route path="/reports" component={ReportsPage} />
+            <Route path="/policies" component={PoliciesPage} />
+            <Route path="/users" component={UsersPage} />
             <Route component={NotFound} />
           </Switch>
         </AppLayout>

@@ -62,21 +62,25 @@ function optional_number(array $body, string $key)
 
 // ── Auth ─────────────────────────────────────────────────────────────────
 
-const ADMIN_EMAIL = 's.elkherbawy@qoyod.com';
-const ACCOUNTS_MANAGER_EMAIL = 'balghafli@qoyod.com';
-const ACCOUNTS_EMPLOYEE_EMAIL = 'ohamdy@qoyod.com';
+const VALID_ROLES = ['admin', 'accounts_manager', 'accounts_employee', 'employee'];
 
+// Roles are stored in the `users` table (see schema.sql), managed via the
+// /users endpoints. Any @qoyod.com email with no row there is an "employee".
 function get_role(string $email): string
 {
-    if ($email === ADMIN_EMAIL) return 'admin';
-    if ($email === ACCOUNTS_MANAGER_EMAIL) return 'accounts_manager';
-    if ($email === ACCOUNTS_EMPLOYEE_EMAIL) return 'accounts_employee';
-    return 'employee';
+    $row = db_query_one('SELECT role FROM users WHERE email = ?', [$email]);
+    return $row['role'] ?? 'employee';
 }
 
 function current_user_email(): ?string
 {
     return $_SESSION['user_email'] ?? null;
+}
+
+function current_user_role(): ?string
+{
+    $email = current_user_email();
+    return $email ? get_role($email) : null;
 }
 
 function require_auth(): string
@@ -86,6 +90,48 @@ function require_auth(): string
         error_response('Not authenticated', 401);
     }
     return $email;
+}
+
+function require_role(string ...$roles): string
+{
+    $email = require_auth();
+    if (!in_array(get_role($email), $roles, true)) {
+        error_response('Access denied', 403);
+    }
+    return $email;
+}
+
+// ── HTTP client (for Google OAuth) ──────────────────────────────────────
+
+function http_post_form(string $url, array $fields): array
+{
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => http_build_query($fields),
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 15,
+    ]);
+    $raw = curl_exec($ch);
+    $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    $data = json_decode((string) $raw, true);
+    return ['status' => $status, 'data' => is_array($data) ? $data : []];
+}
+
+function http_get_json(string $url, array $headers = []): array
+{
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_HTTPHEADER => $headers,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 15,
+    ]);
+    $raw = curl_exec($ch);
+    $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    $data = json_decode((string) $raw, true);
+    return ['status' => $status, 'data' => is_array($data) ? $data : []];
 }
 
 // ── Routing ──────────────────────────────────────────────────────────────

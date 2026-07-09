@@ -1,42 +1,32 @@
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useAuth } from "@/hooks/use-auth";
+import { useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Building2 } from "lucide-react";
 
-const loginSchema = z.object({
-  email: z.string().email("Please enter a valid email address").endsWith("@qoyod.com", "Email must end with @qoyod.com"),
-});
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+const googleLoginUrl = `${basePath}/api/index.php/api/auth/google/start`;
 
-type LoginFormValues = z.infer<typeof loginSchema>;
+const ERROR_MESSAGES: Record<string, string> = {
+  domain: "You must sign in with a @qoyod.com email address.",
+  oauth_state: "Sign-in expired, please try again.",
+  oauth_token: "Could not complete sign-in with Google. Please try again.",
+  oauth_email: "Google account has no verified email. Please try again.",
+};
 
 export default function LoginPage() {
-  const { login } = useAuth();
   const { toast } = useToast();
 
-  const form = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: "",
-    },
-  });
-
-  const onSubmit = async (data: LoginFormValues) => {
-    try {
-      await login(data.email);
-    } catch (error) {
+  useEffect(() => {
+    const error = new URLSearchParams(window.location.search).get("error");
+    if (error) {
       toast({
         title: "Login Failed",
-        description: "Please check your credentials and try again.",
+        description: ERROR_MESSAGES[error] || "Please try again.",
         variant: "destructive",
       });
     }
-  };
+  }, [toast]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
@@ -47,32 +37,23 @@ export default function LoginPage() {
           </div>
           <CardTitle className="text-2xl font-bold tracking-tight text-primary">Qoyod Procurement</CardTitle>
           <CardDescription>
-            Enter your Qoyod email to access the Vendor & Purchase Management System
+            Sign in with your Qoyod Google account to access the Vendor & Purchase Management System
             <br />
-            <span className="text-xs mt-1 block">أدخل بريدك الإلكتروني للوصول إلى نظام إدارة المشتريات</span>
+            <span className="text-xs mt-1 block">سجّل الدخول بحساب Google الخاص بشركة قيود للوصول إلى نظام إدارة المشتريات</span>
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email Address / البريد الإلكتروني</FormLabel>
-                    <FormControl>
-                      <Input placeholder="name@qoyod.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? "Signing in..." : "Sign In / تسجيل الدخول"}
-              </Button>
-            </form>
-          </Form>
+          <Button asChild className="w-full" size="lg">
+            <a href={googleLoginUrl} className="flex items-center justify-center gap-2">
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.48c-.28 1.5-1.13 2.78-2.4 3.63v3h3.89c2.28-2.1 3.6-5.19 3.6-8.82z" />
+                <path fill="#34A853" d="M12 24c3.24 0 5.96-1.07 7.95-2.92l-3.89-3c-1.08.72-2.45 1.15-4.06 1.15-3.12 0-5.77-2.11-6.72-4.95H1.27v3.1C3.25 21.3 7.31 24 12 24z" />
+                <path fill="#FBBC05" d="M5.28 14.28A7.2 7.2 0 0 1 4.9 12c0-.79.14-1.56.38-2.28v-3.1H1.27A11.98 11.98 0 0 0 0 12c0 1.94.46 3.77 1.27 5.38l4.01-3.1z" />
+                <path fill="#EA4335" d="M12 4.77c1.76 0 3.34.61 4.59 1.8l3.44-3.44C17.95 1.19 15.24 0 12 0 7.31 0 3.25 2.7 1.27 6.62l4.01 3.1C6.23 6.88 8.88 4.77 12 4.77z" />
+              </svg>
+              Sign in with Google / تسجيل الدخول بحساب Google
+            </a>
+          </Button>
         </CardContent>
       </Card>
     </div>

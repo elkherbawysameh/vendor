@@ -1,5 +1,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useListPurchaseRequests } from "@workspace/api-client-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { deleteAllPurchaseRequests, deletePurchaseRequest } from "@/lib/admin-api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -7,16 +9,30 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { getStatusInfo } from "@/lib/constants";
 import { Link } from "wouter";
-import { Eye, Plus, Search, Filter } from "lucide-react";
+import { Eye, Plus, Search, Filter, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function RequestsPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [clearAllOpen, setClearAllOpen] = useState(false);
+  const isAdmin = user?.role === "admin";
 
   const isManager = user?.role === "admin" || user?.role === "accounts_manager" || user?.role === "accounts_employee";
   
@@ -40,6 +56,26 @@ export default function RequestsPage() {
       }
     }
   );
+
+  const deleteOneMut = useMutation({
+    mutationFn: (id: number) => deletePurchaseRequest(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["purchase-requests"] });
+      toast({ title: "Request deleted" });
+      setDeleteId(null);
+    },
+    onError: () => toast({ title: "Failed to delete request", variant: "destructive" }),
+  });
+
+  const deleteAllMut = useMutation({
+    mutationFn: deleteAllPurchaseRequests,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["purchase-requests"] });
+      toast({ title: "All requests cleared" });
+      setClearAllOpen(false);
+    },
+    onError: () => toast({ title: "Failed to clear requests", variant: "destructive" }),
+  });
 
   // Client-side filtering
   const filteredRequests = requests?.filter(req => {
@@ -71,10 +107,18 @@ export default function RequestsPage() {
           <h1 className="text-2xl font-bold text-primary">Purchase Requests</h1>
           <p className="text-muted-foreground text-sm">Manage and track procurement requests / إدارة وتتبع طلبات الشراء</p>
         </div>
+        <div className="flex items-center gap-2">
+        {isAdmin && (
+          <Button variant="outline" className="text-destructive hover:text-destructive" onClick={() => setClearAllOpen(true)}>
+            <Trash2 className="w-4 h-4 mr-2" />
+            Clear All / حذف الكل
+          </Button>
+        )}
         <Link href="/requests/new" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 shrink-0">
           <Plus className="w-4 h-4 mr-2" />
           New Request / طلب جديد
         </Link>
+        </div>
       </div>
 
       <Card>
@@ -176,11 +220,18 @@ export default function RequestsPage() {
                         {formatDate(req.createdAt)}
                       </TableCell>
                       <TableCell className="text-right pr-6">
-                        <Link href={`/requests/${req.id}`}>
-                          <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </Link>
+                        <div className="flex items-center justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Link href={`/requests/${req.id}`}>
+                            <Button variant="ghost" size="icon">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                          {isAdmin && (
+                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => setDeleteId(req.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -190,6 +241,36 @@ export default function RequestsPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-destructive">Delete Request?</DialogTitle>
+            <DialogDescription>This action cannot be undone. This will permanently delete the request and its activity history.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteId(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => deleteId && deleteOneMut.mutate(deleteId)} disabled={deleteOneMut.isPending}>
+              {deleteOneMut.isPending ? "Deleting..." : "Delete Request"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={clearAllOpen} onOpenChange={setClearAllOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-destructive">Clear All Requests?</DialogTitle>
+            <DialogDescription>This action cannot be undone. This will permanently delete every purchase request and their activity history.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setClearAllOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => deleteAllMut.mutate()} disabled={deleteAllMut.isPending}>
+              {deleteAllMut.isPending ? "Clearing..." : "Clear All Requests"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

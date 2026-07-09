@@ -1,68 +1,51 @@
 import React, { createContext, useContext, useEffect } from "react";
 import { useLocation } from "wouter";
-import { AuthUser, useGetCurrentUser, useLogin, useLogout, getGetCurrentUserQueryKey } from "@workspace/api-client-react";
+import { AuthUser, useGetCurrentUser, useLogout, getGetCurrentUserQueryKey } from "@workspace/api-client-react";
 
 interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
-  login: (email: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   isLoading: true,
-  login: async () => {},
   logout: async () => {},
 });
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [, setLocation] = useLocation();
-  const email = localStorage.getItem("auth_email");
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-  const { data: user, isLoading: isQueryLoading, error } = useGetCurrentUser({
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [currentLocation, setLocation] = useLocation();
+
+  const { data: user, isLoading, error } = useGetCurrentUser({
     query: {
-      enabled: !!email,
       retry: false,
       queryKey: getGetCurrentUserQueryKey(),
     },
   });
 
-  const loginMutation = useLogin();
   const logoutMutation = useLogout();
 
-  const isLoading = !!email && isQueryLoading;
-
   useEffect(() => {
-    if (error || (!email && !isLoading)) {
-      if (location.pathname !== "/login") {
+    if (!isLoading && (error || !user)) {
+      if (currentLocation !== "/login") {
         setLocation("/login");
       }
     }
-  }, [error, email, isLoading, setLocation]);
-
-  const login = async (loginEmail: string) => {
-    try {
-      await loginMutation.mutateAsync({ data: { email: loginEmail } });
-      localStorage.setItem("auth_email", loginEmail);
-      window.location.href = "/";
-    } catch (error) {
-      console.error("Login failed", error);
-      throw error;
-    }
-  };
+  }, [error, user, isLoading, currentLocation, setLocation]);
 
   const logout = async () => {
     try {
       await logoutMutation.mutateAsync();
     } finally {
-      localStorage.removeItem("auth_email");
-      window.location.href = "/login";
+      window.location.href = `${basePath}/login`;
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user: user || null, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user: user || null, isLoading, logout }}>
       {children}
     </AuthContext.Provider>
   );

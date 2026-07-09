@@ -11,13 +11,19 @@ return [
     'db_user' => getenv('DB_USER') ?: 'u123456789_qoyod',
     'db_pass' => getenv('DB_PASS') ?: 'change-me',
 
-    // URL path this API is mounted under. Leave as "/api" if you deploy
-    // the frontend and this API under the same domain, with this folder
-    // placed at public_html/api. Set to "" if this API is the domain root.
+    // Must match the URL path this "api" folder is actually reachable at,
+    // relative to the domain root. Root deployment (public_html/api) -> "/api".
+    // Subfolder deployment (public_html/Apps/Vendor/api) -> "/Apps/Vendor/api".
     'base_path' => '/api',
 
     // Only needed if the frontend is hosted on a DIFFERENT domain than
     // this API (cross-origin). Leave null for same-origin deployments —
     // that is the simplest and recommended setup for shared hosting.
     'allowed_origin' => null,
+
+    // From Google Cloud Console -> APIs & Services -> Credentials -> OAuth
+    // client ID (Web application). Register this redirect URI there:
+    // https://<your-domain>/<base_path minus "/api">/api/index.php/api/auth/google/callback
+    'google_client_id' => getenv('GOOGLE_CLIENT_ID') ?: '',
+    'google_client_secret' => getenv('GOOGLE_CLIENT_SECRET') ?: '',
 ];

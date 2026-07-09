@@ -139,9 +139,9 @@ function EmployeeDashboard() {
               <CardDescription>Submit a new purchase request for approval.</CardDescription>
             </CardHeader>
             <CardContent>
-              <a href="/requests/new" className="flex items-center justify-center w-full bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 rounded-md text-sm font-medium transition-colors">
+              <Link href="/requests/new" className="flex items-center justify-center w-full bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 rounded-md text-sm font-medium transition-colors">
                 Create Request / إنشاء طلب
-              </a>
+              </Link>
             </CardContent>
           </Card>
         </div>

@@ -1,5 +1,9 @@
 RewriteEngine On
+
+# Let requests under ./api/ pass through untouched (handled by its own .htaccess),
+# regardless of whether this app is deployed at the domain root or a subfolder.
+RewriteRule ^api/ - [L]
+
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteCond %{REQUEST_URI} !^/api/
 RewriteRule ^ index.html [L]

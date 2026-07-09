@@ -1,17 +1,16 @@
 import { useAuth } from "@/hooks/use-auth";
-import { useListVendors, useDeleteVendor } from "@workspace/api-client-react";
+import { useListVendors, useDeleteVendor, useImportVendors, getListVendorsQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/utils";
 import { Link, useLocation } from "wouter";
-import { Plus, Search, Building2, ExternalLink, Trash2, Edit } from "lucide-react";
+import { Plus, Search, Building2, ExternalLink, Trash2, Edit, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { getListVendorsQueryKey } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -29,9 +28,31 @@ export default function VendorsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const importFileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: vendors, isLoading } = useListVendors();
   const deleteMutation = useDeleteVendor();
+  const importMutation = useImportVendors();
+
+  const handleImport = async () => {
+    if (!importFile) return;
+    try {
+      const csvData = await importFile.text();
+      const result = await importMutation.mutateAsync({ data: { csvData } });
+      queryClient.invalidateQueries({ queryKey: getListVendorsQueryKey() });
+      toast({
+        title: `Imported ${result.imported} vendor(s)`,
+        description: result.errors.length > 0 ? `${result.errors.length} row(s) skipped.` : undefined,
+      });
+      setImportOpen(false);
+      setImportFile(null);
+      if (importFileInputRef.current) importFileInputRef.current.value = "";
+    } catch (e) {
+      toast({ title: "Failed to import CSV", variant: "destructive" });
+    }
+  };
 
   // Role checks
   const isAdmin = user?.role === "admin";
@@ -70,10 +91,16 @@ export default function VendorsPage() {
           <p className="text-muted-foreground text-sm">Manage suppliers and their documentation / إدارة الموردين ووثائقهم</p>
         </div>
         {canAddEdit && (
-          <Link href="/vendors/new" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 shrink-0">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Vendor / إضافة مورد
-          </Link>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              <Upload className="w-4 h-4 mr-2" />
+              Import CSV / استيراد
+            </Button>
+            <Link href="/vendors/new" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 shrink-0">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Vendor / إضافة مورد
+            </Link>
+          </div>
         )}
       </div>
 
@@ -181,6 +208,31 @@ export default function VendorsPage() {
             <Button variant="outline" onClick={() => setDeleteId(null)}>Cancel</Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleteMutation.isPending}>
               {deleteMutation.isPending ? "Deleting..." : "Delete Vendor"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import Vendors from CSV</DialogTitle>
+            <DialogDescription>
+              Columns: id, company name, contact person, contact email, contact phone, bank name, IBAN.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Input
+              ref={importFileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportOpen(false)}>Cancel</Button>
+            <Button onClick={handleImport} disabled={!importFile || importMutation.isPending}>
+              {importMutation.isPending ? "Importing..." : "Import"}
             </Button>
           </DialogFooter>
         </DialogContent>

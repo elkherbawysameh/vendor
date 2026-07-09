@@ -29,20 +29,38 @@ if ($crossOrigin) {
 
 require __DIR__ . '/../src/routes/health.php';
 require __DIR__ . '/../src/routes/auth.php';
+require __DIR__ . '/../src/routes/users.php';
 require __DIR__ . '/../src/routes/vendorCategories.php';
 require __DIR__ . '/../src/routes/vendors.php';
 require __DIR__ . '/../src/routes/purchaseRequests.php';
 require __DIR__ . '/../src/routes/dashboard.php';
 require __DIR__ . '/../src/routes/reports.php';
+require __DIR__ . '/../src/routes/policies.php';
 
-$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+// Two ways this can be reached:
+//
+// 1. Direct invocation of this file with extra path info, e.g.
+//    /api/index.php/api/vendors -- PATH_INFO = "/api/vendors". This is what
+//    the frontend uses by default (see main.tsx's setBaseUrl call) because it
+//    works on every Apache/PHP host without needing mod_rewrite or
+//    AllowOverride permissions for a nested .htaccess to take effect.
+// 2. A pretty URL like /api/vendors rewritten internally to this file by
+//    ./.htaccess, in hosts where that rewrite is actually in effect.
+$pathInfo = $_SERVER['PATH_INFO'] ?? '';
+if ($pathInfo !== '') {
+    $path = $pathInfo;
+    if (strpos($path, '/api') === 0) {
+        $path = substr($path, 4);
+    }
+} else {
+    $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+    $basePath = rtrim($cfg['base_path'] ?? '', '/');
+    if ($basePath !== '' && strpos($path, $basePath) === 0) {
+        $path = substr($path, strlen($basePath));
+    }
+}
+
 $path = rtrim($path, '/');
 if ($path === '') $path = '/';
-
-$basePath = rtrim($cfg['base_path'] ?? '', '/');
-if ($basePath !== '' && strpos($path, $basePath) === 0) {
-    $path = substr($path, strlen($basePath));
-    if ($path === '') $path = '/';
-}
 
 dispatch($_SERVER['REQUEST_METHOD'], $path);

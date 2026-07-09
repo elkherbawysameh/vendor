@@ -1,13 +1,14 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { 
-  LayoutDashboard, 
-  ShoppingCart, 
-  PlusCircle, 
-  Users, 
-  UserPlus, 
-  Tags, 
-  BarChart3, 
+import {
+  LayoutDashboard,
+  ShoppingCart,
+  PlusCircle,
+  Users,
+  UserPlus,
+  Tags,
+  BarChart3,
+  FileText,
   LogOut,
   Building2,
   Menu,
@@ -42,6 +43,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     ...(isAdminOrAccountsManager ? [
       { name: "Categories", nameAr: "الفئات", href: "/categories", icon: Tags },
       { name: "Reports", nameAr: "التقارير", href: "/reports", icon: BarChart3 },
+    ] : []),
+    { name: "Policies", nameAr: "السياسات", href: "/policies", icon: FileText },
+    ...(role === "admin" ? [
+      { name: "Admins", nameAr: "المستخدمين", href: "/users", icon: UserPlus },
     ] : []),
   ];
 

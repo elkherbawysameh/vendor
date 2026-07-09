@@ -294,3 +294,25 @@ route('GET', '/purchase-requests/{id}/activities', function ($params) {
     );
     json_response($activities);
 });
+
+// DELETE /purchase-requests/{id}
+route('DELETE', '/purchase-requests/{id}', function ($params) {
+    require_role('admin');
+    $id = (int) $params['id'];
+    $row = get_purchase_request($id);
+    if (!$row) error_response('Request not found', 404);
+
+    db_execute('DELETE FROM request_activities WHERE request_id = ?', [$id]);
+    db_execute('DELETE FROM vendor_transactions WHERE purchase_request_id = ?', [$id]);
+    db_execute('DELETE FROM purchase_requests WHERE id = ?', [$id]);
+    no_content();
+});
+
+// DELETE /purchase-requests (delete all)
+route('DELETE', '/purchase-requests', function () {
+    require_role('admin');
+    db_execute('DELETE FROM request_activities');
+    db_execute('DELETE FROM vendor_transactions');
+    db_execute('DELETE FROM purchase_requests');
+    no_content();
+});
