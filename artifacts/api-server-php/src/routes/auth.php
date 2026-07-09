@@ -8,10 +8,30 @@ function google_redirect_uri(): string
     return "$scheme://$host$script/api/auth/google/callback";
 }
 
-function frontend_base_path(): string
+// Default frontend to return to after login: same origin as this API,
+// stripped of the "/api" suffix from base_path (e.g. /Apps/Vendor/api ->
+// https://host/Apps/Vendor). This is the production frontend.
+function default_frontend_url(): string
 {
     $cfg = config();
-    return preg_replace('#/api$#', '', rtrim($cfg['base_path'] ?? '', '/'));
+    $scheme = (($_SERVER['HTTPS'] ?? '') !== '' && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $path = preg_replace('#/api$#', '', rtrim($cfg['base_path'] ?? '', '/'));
+    return $scheme . '://' . $_SERVER['HTTP_HOST'] . $path;
+}
+
+// Only ever redirect back to the production frontend or the one extra
+// origin configured for cross-origin testing (allowed_origin) -- never to
+// an arbitrary "return_to" a caller supplies, to avoid an open redirect.
+function is_allowed_return_url(string $url): bool
+{
+    $cfg = config();
+    $origin = preg_replace('#^(https?://[^/]+).*$#', '$1', $url);
+    $scheme = (($_SERVER['HTTPS'] ?? '') !== '' && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $productionOrigin = $scheme . '://' . $_SERVER['HTTP_HOST'];
+    if ($origin === $productionOrigin) {
+        return true;
+    }
+    return !empty($cfg['allowed_origin']) && $origin === rtrim($cfg['allowed_origin'], '/');
 }
 
 // GET /auth/google/start
@@ -21,8 +41,14 @@ route('GET', '/auth/google/start', function () {
         error_response('Google login is not configured yet (missing google_client_id in config.php)', 500);
     }
 
+    $returnTo = $_GET['return_to'] ?? default_frontend_url();
+    if (!is_allowed_return_url($returnTo)) {
+        $returnTo = default_frontend_url();
+    }
+
     $state = bin2hex(random_bytes(16));
     $_SESSION['oauth_state'] = $state;
+    $_SESSION['oauth_return_to'] = rtrim($returnTo, '/');
 
     $params = http_build_query([
         'client_id' => $cfg['google_client_id'],
@@ -40,7 +66,7 @@ route('GET', '/auth/google/start', function () {
 // GET /auth/google/callback
 route('GET', '/auth/google/callback', function () {
     $cfg = config();
-    $base = frontend_base_path();
+    $base = $_SESSION['oauth_return_to'] ?? default_frontend_url();
 
     $state = $_GET['state'] ?? '';
     $code = $_GET['code'] ?? '';
@@ -48,7 +74,7 @@ route('GET', '/auth/google/callback', function () {
         header('Location: ' . $base . '/login?error=oauth_state');
         exit;
     }
-    unset($_SESSION['oauth_state']);
+    unset($_SESSION['oauth_state'], $_SESSION['oauth_return_to']);
 
     $tokenResponse = http_post_form('https://oauth2.googleapis.com/token', [
         'client_id' => $cfg['google_client_id'],

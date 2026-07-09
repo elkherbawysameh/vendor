@@ -360,7 +360,10 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, { ...init, method, headers });
+  // Explicit "include" so the session cookie is sent even when the API is on
+  // a different origin than the page (e.g. a static frontend on GitHub Pages
+  // calling a backend on another domain). Harmless for same-origin requests.
+  const response = await fetch(input, { credentials: "include", ...init, method, headers });
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);

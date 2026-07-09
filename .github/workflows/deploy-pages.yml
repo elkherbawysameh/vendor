@@ -1,0 +1,64 @@
+name: Deploy staging frontend to GitHub Pages
+
+# Builds the React frontend and publishes it to GitHub Pages as a staging
+# copy that talks to the same production PHP/MySQL backend on Hostinger
+# (cross-origin). This never touches the backend or the database -- it's
+# just an easy way to preview frontend changes without re-uploading zips.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'artifacts/qoyod-purchase/**'
+      - 'lib/api-client-react/**'
+      - 'lib/api-zod/**'
+      - '.github/workflows/deploy-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        working-directory: artifacts/qoyod-purchase
+        env:
+          PORT: "5173"
+          BASE_PATH: /vendor/
+          VITE_API_BASE_URL: https://craftinnovationsgroup.com/Apps/Vendor
+        run: pnpm run build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: artifacts/qoyod-purchase/dist/public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

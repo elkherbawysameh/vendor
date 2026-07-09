@@ -5,7 +5,12 @@ import { useToast } from "@/hooks/use-toast";
 import { Building2 } from "lucide-react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-const googleLoginUrl = `${basePath}/api/index.php/api/auth/google/start`;
+const apiBase = import.meta.env.VITE_API_BASE_URL || basePath;
+// Tells the backend which frontend to send the browser back to after
+// Google sign-in -- needed because the API may be hosted on a different
+// origin than the page calling it (e.g. a GitHub Pages staging frontend).
+const returnTo = encodeURIComponent(`${window.location.origin}${basePath}`);
+const googleLoginUrl = `${apiBase}/api/index.php/api/auth/google/start?return_to=${returnTo}`;
 
 const ERROR_MESSAGES: Record<string, string> = {
   domain: "You must sign in with a @qoyod.com email address.",
