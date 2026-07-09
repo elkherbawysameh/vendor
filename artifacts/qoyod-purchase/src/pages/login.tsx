@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Building2 } from "lucide-react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const apiBase = import.meta.env.VITE_API_BASE_URL || basePath;
@@ -34,12 +33,10 @@ export default function LoginPage() {
   }, [toast]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-md shadow-lg border-primary/10">
         <CardHeader className="space-y-4 text-center items-center">
-          <div className="w-16 h-16 bg-primary rounded-xl flex items-center justify-center mb-2">
-            <Building2 className="w-8 h-8 text-primary-foreground" />
-          </div>
+          <img src="/logo.png" alt="Qoyod" className="h-14 w-auto mb-2" />
           <CardTitle className="text-2xl font-bold tracking-tight text-primary">Qoyod Procurement</CardTitle>
           <CardDescription>
             Sign in with your Qoyod Google account to access the Vendor & Purchase Management System
@@ -61,6 +58,9 @@ export default function LoginPage() {
           </Button>
         </CardContent>
       </Card>
+      <p className="text-xs text-muted-foreground mt-6">
+        This system created by Sameh Elkherbawy. All rights reserved.
+      </p>
     </div>
   );
 }

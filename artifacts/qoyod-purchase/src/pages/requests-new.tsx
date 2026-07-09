@@ -167,7 +167,7 @@ export default function NewRequestPage() {
                     name="estimatedAmount"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Estimated Total Amount (SAR)</FormLabel>
+                        <FormLabel>Estimated Total Amount (EGP)</FormLabel>
                         <FormControl>
                           <Input type="number" step="0.01" min="0" placeholder="Optional estimated cost" {...field} />
                         </FormControl>

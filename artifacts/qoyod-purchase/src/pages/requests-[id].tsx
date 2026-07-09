@@ -389,7 +389,7 @@ export default function RequestDetail() {
           <div className="space-y-4 py-4">
             {actionModal === 'execute' && (
               <div className="space-y-2">
-                <Label>Final Actual Amount (SAR) <span className="text-destructive">*</span></Label>
+                <Label>Final Actual Amount (EGP) <span className="text-destructive">*</span></Label>
                 <Input 
                   type="number" 
                   min="0" 

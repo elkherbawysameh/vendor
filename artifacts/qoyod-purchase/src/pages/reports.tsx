@@ -48,7 +48,7 @@ export default function ReportsPage() {
     if (!report?.requests || report.requests.length === 0) return;
 
     // Simple CSV generator
-    const headers = ["PR Number", "Date", "Requester", "Department", "Vendor", "Item", "Status", "Amount (SAR)"];
+    const headers = ["PR Number", "Date", "Requester", "Department", "Vendor", "Item", "Status", "Amount (EGP)"];
     
     const rows = report.requests.map(req => [
       req.requestNumber,
@@ -113,7 +113,7 @@ export default function ReportsPage() {
           <div className="flex items-end">
             <div className="bg-primary text-primary-foreground p-3 rounded-md w-full flex justify-between items-center shadow-sm">
               <span className="text-sm font-medium">Total Spend (Selected)</span>
-              <span className="text-xl font-bold">{report?.totalAmount ? formatCurrency(report.totalAmount) : 'SAR 0.00'}</span>
+              <span className="text-xl font-bold">{report?.totalAmount ? formatCurrency(report.totalAmount) : 'EGP 0.00'}</span>
             </div>
           </div>
         </CardContent>

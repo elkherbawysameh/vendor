@@ -181,7 +181,7 @@ export default function VendorDetail() {
           <Card className="bg-primary text-primary-foreground border-none">
             <CardContent className="p-6">
               <div className="text-primary-foreground/80 text-sm mb-1">Total Lifetime Spend</div>
-              <div className="text-3xl font-bold">{vendor.totalSpent ? formatCurrency(vendor.totalSpent) : 'SAR 0.00'}</div>
+              <div className="text-3xl font-bold">{vendor.totalSpent ? formatCurrency(vendor.totalSpent) : 'EGP 0.00'}</div>
               <div className="text-primary-foreground/60 text-xs mt-2">{vendor.transactionCount || 0} completed transactions</div>
             </CardContent>
           </Card>

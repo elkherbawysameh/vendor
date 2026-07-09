@@ -10,7 +10,6 @@ import {
   BarChart3,
   FileText,
   LogOut,
-  Building2,
   Menu,
   Bell
 } from "lucide-react";
@@ -54,10 +53,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
       {/* Mobile Header */}
       <div className="md:hidden flex items-center justify-between p-4 border-b bg-card">
-        <div className="flex items-center gap-2 text-primary font-bold">
-          <Building2 className="w-6 h-6" />
-          <span>Qoyod Procure</span>
-        </div>
+        <img src="/logo.png" alt="Qoyod" className="h-7 w-auto" />
         <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
           <Menu className="w-5 h-5" />
         </Button>
@@ -68,11 +64,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         "w-64 bg-sidebar border-r border-sidebar-border flex-col h-screen sticky top-0 transition-transform duration-300 z-50",
         isMobileMenuOpen ? "fixed inset-y-0 left-0 translate-x-0" : "max-md:-translate-x-full fixed md:relative"
       )}>
-        <div className="p-6 flex items-center gap-3 text-primary font-bold text-xl border-b border-sidebar-border/50">
-          <div className="bg-primary/10 p-2 rounded-lg">
-            <Building2 className="w-6 h-6" />
-          </div>
-          <span>Qoyod</span>
+        <div className="p-6 flex items-center border-b border-sidebar-border/50">
+          <img src="/logo.png" alt="Qoyod" className="h-9 w-auto" />
         </div>
 
         <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-1.5">
@@ -134,6 +127,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="flex-1 overflow-auto p-4 md:p-8">
           {children}
         </div>
+        <footer className="py-4 text-center text-xs text-muted-foreground border-t">
+          This system created by Sameh Elkherbawy. All rights reserved.
+        </footer>
       </main>
       
       {/* Mobile overlay */}
