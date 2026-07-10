@@ -542,6 +542,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/PurchaseRequest"
 
+  /purchase-requests/{id}/assign-vendor:
+    post:
+      operationId: assignPurchaseRequestVendor
+      tags: [purchase-requests]
+      summary: Assign the vendor for a request once the manager has approved it (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignVendorInput"
+      responses:
+        "200":
+          description: Vendor assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseRequest"
+
   /purchase-requests/{id}/reject:
     post:
       operationId: rejectPurchaseRequest
@@ -1011,7 +1036,7 @@ components:
     # ── Purchase Request ───────────────────────────────────────────────────
     PurchaseRequest:
       type: object
-      required: [id, requestNumber, requesterEmail, department, itemDescription, quantity, vendorId, reason, managerEmail, status, createdAt]
+      required: [id, requestNumber, requesterEmail, department, itemDescription, quantity, reason, managerEmail, status, createdAt]
       properties:
         id:
           type: integer
@@ -1026,9 +1051,13 @@ components:
         quantity:
           type: integer
         vendorId:
-          type: integer
+          type: ["integer", "null"]
         vendor:
           $ref: "#/components/schemas/Vendor"
+        categoryId:
+          type: ["integer", "null"]
+        category:
+          $ref: "#/components/schemas/VendorCategory"
         reason:
           type: string
         managerEmail:
@@ -1038,6 +1067,7 @@ components:
           enum:
             - pending_manager
             - pending_clarification_employee_manager
+            - pending_vendor_assignment
             - pending_clarification_employee_accounts
             - approved_by_manager
             - rejected_by_manager
@@ -1071,7 +1101,7 @@ components:
 
     PurchaseRequestInput:
       type: object
-      required: [requesterEmail, department, itemDescription, quantity, vendorId, reason, managerEmail]
+      required: [requesterEmail, department, itemDescription, quantity, reason, managerEmail]
       properties:
         requesterEmail:
           type: string
@@ -1085,7 +1115,8 @@ components:
         quantity:
           type: integer
           minimum: 1
-        vendorId:
+        categoryId:
+          description: Omit for "Other" (no category fits) -- an admin assigns the actual vendor after manager approval.
           type: integer
         reason:
           type: string
@@ -1101,6 +1132,13 @@ components:
       properties:
         note:
           type: string
+
+    AssignVendorInput:
+      type: object
+      required: [vendorId]
+      properties:
+        vendorId:
+          type: integer
 
     ClarificationResponse:
       type: object

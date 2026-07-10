@@ -1,7 +1,8 @@
 <?php
 
 const PURCHASE_REQUEST_COLUMNS = "id, request_number AS requestNumber, requester_email AS requesterEmail, department,
-    item_description AS itemDescription, quantity, vendor_id AS vendorId, reason, manager_email AS managerEmail, status,
+    item_description AS itemDescription, quantity, vendor_id AS vendorId, category_id AS categoryId, reason,
+    manager_email AS managerEmail, status,
     estimated_amount AS estimatedAmount, final_amount AS finalAmount, manager_note AS managerNote,
     accounts_note AS accountsNote, clarification_question AS clarificationQuestion,
     clarification_answer AS clarificationAnswer, executed_at AS executedAt, executed_by AS executedBy,
@@ -32,24 +33,32 @@ function log_activity(int $requestId, string $actorEmail, string $action, ?strin
 
 function enrich_request(array $req): array
 {
-    $vendor = db_query_one('SELECT ' . VENDOR_COLUMNS . ' FROM vendors WHERE id = ?', [(int) $req['vendorId']]);
     $vendorEnriched = null;
-    if ($vendor) {
-        $categories = db_query(
-            'SELECT c.id, c.name FROM vendor_category_links l
-             INNER JOIN vendor_categories c ON l.category_id = c.id
-             WHERE l.vendor_id = ?',
-            [(int) $vendor['id']]
-        );
-        $vendorEnriched = array_merge($vendor, [
-            'categories' => $categories,
-            'documents' => [],
-            'categoryIds' => array_map(fn($c) => (int) $c['id'], $categories),
-            'totalSpent' => null,
-            'transactionCount' => null,
-        ]);
+    if ($req['vendorId'] !== null) {
+        $vendor = db_query_one('SELECT ' . VENDOR_COLUMNS . ' FROM vendors WHERE id = ?', [(int) $req['vendorId']]);
+        if ($vendor) {
+            $categories = db_query(
+                'SELECT c.id, c.name FROM vendor_category_links l
+                 INNER JOIN vendor_categories c ON l.category_id = c.id
+                 WHERE l.vendor_id = ?',
+                [(int) $vendor['id']]
+            );
+            $vendorEnriched = array_merge($vendor, [
+                'categories' => $categories,
+                'documents' => [],
+                'categoryIds' => array_map(fn($c) => (int) $c['id'], $categories),
+                'totalSpent' => null,
+                'transactionCount' => null,
+            ]);
+        }
     }
-    return array_merge($req, ['vendor' => $vendorEnriched]);
+
+    $category = null;
+    if ($req['categoryId'] !== null) {
+        $category = db_query_one('SELECT ' . VENDOR_CATEGORY_COLUMNS . ' FROM vendor_categories WHERE id = ?', [(int) $req['categoryId']]);
+    }
+
+    return array_merge($req, ['vendor' => $vendorEnriched, 'category' => $category]);
 }
 
 // GET /purchase-requests
@@ -78,19 +87,21 @@ route('POST', '/purchase-requests', function () {
     $department = require_string($body, 'department', 1);
     $itemDescription = require_string($body, 'itemDescription', 1);
     $quantity = require_int($body, 'quantity');
-    $vendorId = require_int($body, 'vendorId');
+    // Requesters pick a category, not a vendor -- null/absent means "Other"
+    // (no category fit; an admin picks the vendor after manager approval).
+    $categoryId = require_int($body, 'categoryId');
     $reason = require_string($body, 'reason', 1);
     $managerEmail = require_email($body, 'managerEmail');
-    if (!$requesterEmail || !$department || !$itemDescription || !$quantity || $quantity < 1 || !$vendorId || !$reason || !$managerEmail) {
+    if (!$requesterEmail || !$department || !$itemDescription || !$quantity || $quantity < 1 || !$reason || !$managerEmail) {
         error_response('Invalid input', 400);
     }
 
     $requestNumber = generate_request_number();
     $id = db_insert(
         'INSERT INTO purchase_requests (request_number, requester_email, department, item_description, quantity,
-            vendor_id, reason, manager_email, status, estimated_amount)
+            category_id, reason, manager_email, status, estimated_amount)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [$requestNumber, $requesterEmail, $department, $itemDescription, $quantity, $vendorId, $reason, $managerEmail,
+        [$requestNumber, $requesterEmail, $department, $itemDescription, $quantity, $categoryId, $reason, $managerEmail,
             'pending_manager', optional_number($body, 'estimatedAmount')]
     );
     $created = get_purchase_request($id);
@@ -117,7 +128,9 @@ route('POST', '/purchase-requests/{id}/approve', function ($params) {
     $actorEmail = current_user_email() ?? $row['managerEmail'];
 
     if (in_array($row['status'], ['pending_manager', 'pending_clarification_employee_manager'])) {
-        $newStatus = 'approved_by_manager';
+        // Reorders already carry a known vendor over -- skip straight to
+        // the accounts stage. Fresh requests wait for an admin to assign one.
+        $newStatus = $row['vendorId'] !== null ? 'approved_by_manager' : 'pending_vendor_assignment';
         $actorNote = $body['note'] ?? 'تمت الموافقة من المدير';
     } elseif (in_array($row['status'], ['approved_by_manager', 'pending_clarification_employee_accounts'])) {
         $newStatus = 'approved_by_accounts';
@@ -130,12 +143,37 @@ route('POST', '/purchase-requests/{id}/approve', function ($params) {
         'UPDATE purchase_requests SET status = ?, manager_note = ?, accounts_note = ?, updated_at = NOW() WHERE id = ?',
         [
             $newStatus,
-            $newStatus === 'approved_by_manager' ? ($body['note'] ?? null) : $row['managerNote'],
+            in_array($newStatus, ['approved_by_manager', 'pending_vendor_assignment'], true) ? ($body['note'] ?? null) : $row['managerNote'],
             $newStatus === 'approved_by_accounts' ? ($body['note'] ?? null) : $row['accountsNote'],
             $id,
         ]
     );
     log_activity($id, $actorEmail, 'approved', $actorNote);
+
+    json_response(enrich_request(get_purchase_request($id)));
+});
+
+// POST /purchase-requests/{id}/assign-vendor
+route('POST', '/purchase-requests/{id}/assign-vendor', function ($params) {
+    $actorEmail = require_role('admin');
+    $id = (int) $params['id'];
+    $row = get_purchase_request($id);
+    if (!$row) error_response('Request not found', 404);
+    if ($row['status'] !== 'pending_vendor_assignment') {
+        error_response('Request is not waiting for a vendor assignment', 400);
+    }
+
+    $body = read_json_body();
+    $vendorId = require_int($body, 'vendorId');
+    if (!$vendorId) error_response('vendorId is required', 400);
+    $vendor = db_query_one('SELECT id, company_name AS companyName FROM vendors WHERE id = ?', [$vendorId]);
+    if (!$vendor) error_response('Vendor not found', 404);
+
+    db_execute(
+        'UPDATE purchase_requests SET vendor_id = ?, status = ?, updated_at = NOW() WHERE id = ?',
+        [$vendorId, 'approved_by_manager', $id]
+    );
+    log_activity($id, $actorEmail, 'vendor_assigned', 'تم تحديد المورد: ' . $vendor['companyName']);
 
     json_response(enrich_request(get_purchase_request($id)));
 });
@@ -273,10 +311,11 @@ route('POST', '/purchase-requests/{id}/reorder', function ($params) {
     $requestNumber = generate_request_number();
     $newId = db_insert(
         'INSERT INTO purchase_requests (request_number, requester_email, department, item_description, quantity,
-            vendor_id, reason, manager_email, status, estimated_amount)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            vendor_id, category_id, reason, manager_email, status, estimated_amount)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [$requestNumber, $requesterEmail, $row['department'], $row['itemDescription'], $quantity, (int) $row['vendorId'],
-            $reason, $managerEmail, 'pending_manager', optional_number($body, 'estimatedAmount')]
+            $row['categoryId'] !== null ? (int) $row['categoryId'] : null, $reason, $managerEmail, 'pending_manager',
+            optional_number($body, 'estimatedAmount')]
     );
     $created = get_purchase_request($newId);
     log_activity($newId, $requesterEmail, 'submitted', 'إعادة طلب من ' . $row['requestNumber']);

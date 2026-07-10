@@ -14,7 +14,8 @@ export interface PurchaseRequestInput {
   itemDescription: string;
   /** @minimum 1 */
   quantity: number;
-  vendorId: number;
+  /** Omit for "Other" (no category fits) -- an admin assigns the actual vendor after manager approval. */
+  categoryId?: number;
   /** @minLength 1 */
   reason: string;
   managerEmail: string;

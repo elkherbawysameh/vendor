@@ -142,6 +142,7 @@ export default function RequestsPage() {
                 <SelectContent>
                   <SelectItem value="all">All Statuses / جميع الحالات</SelectItem>
                   <SelectItem value="pending_manager">Pending Manager</SelectItem>
+                  <SelectItem value="pending_vendor_assignment">Awaiting Vendor Assignment</SelectItem>
                   <SelectItem value="approved_by_manager">Pending Accounts</SelectItem>
                   <SelectItem value="approved_by_accounts">Approved / Pending Exec</SelectItem>
                   <SelectItem value="executed">Executed</SelectItem>
@@ -195,7 +196,7 @@ export default function RequestsPage() {
                       <TableCell>
                         <div className="font-medium">{req.itemDescription}</div>
                         <div className="text-xs text-muted-foreground">
-                          {req.vendor?.companyName || 'Unknown Vendor'}
+                          {req.vendor?.companyName || (req.category?.name ? `${req.category.name} (category)` : 'Other')}
                           <span className="mx-1">•</span>
                           Qty: {req.quantity}
                         </div>

@@ -10,7 +10,7 @@ route('GET', '/dashboard/stats', function () {
 
     $pending = db_query_one(
         "SELECT COUNT(*) AS count FROM purchase_requests WHERE status IN
-            ('pending_manager','pending_clarification_employee_manager','pending_clarification_employee_accounts','approved_by_manager')"
+            ('pending_manager','pending_clarification_employee_manager','pending_vendor_assignment','pending_clarification_employee_accounts','approved_by_manager')"
     );
     $approved = db_query_one(
         "SELECT COUNT(*) AS count FROM purchase_requests WHERE status IN ('approved_by_accounts','executed')"

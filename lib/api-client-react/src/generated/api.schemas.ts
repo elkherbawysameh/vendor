@@ -151,6 +151,7 @@ export type PurchaseRequestStatus = typeof PurchaseRequestStatus[keyof typeof Pu
 export const PurchaseRequestStatus = {
   pending_manager: 'pending_manager',
   pending_clarification_employee_manager: 'pending_clarification_employee_manager',
+  pending_vendor_assignment: 'pending_vendor_assignment',
   pending_clarification_employee_accounts: 'pending_clarification_employee_accounts',
   approved_by_manager: 'approved_by_manager',
   rejected_by_manager: 'rejected_by_manager',
@@ -167,8 +168,12 @@ export interface PurchaseRequest {
   department: string;
   itemDescription: string;
   quantity: number;
-  vendorId: number;
+  /** @nullable */
+  vendorId?: number | null;
   vendor?: Vendor;
+  /** @nullable */
+  categoryId?: number | null;
+  category?: VendorCategory;
   reason: string;
   managerEmail: string;
   status: PurchaseRequestStatus;
@@ -200,7 +205,8 @@ export interface PurchaseRequestInput {
   itemDescription: string;
   /** @minimum 1 */
   quantity: number;
-  vendorId: number;
+  /** Omit for "Other" (no category fits) -- an admin assigns the actual vendor after manager approval. */
+  categoryId?: number;
   /** @minLength 1 */
   reason: string;
   managerEmail: string;
@@ -209,6 +215,10 @@ export interface PurchaseRequestInput {
 
 export interface ActionInput {
   note?: string;
+}
+
+export interface AssignVendorInput {
+  vendorId: number;
 }
 
 export interface ClarificationResponse {

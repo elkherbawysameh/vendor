@@ -493,7 +493,7 @@ export const ListPurchaseRequestsResponseItem = zod.object({
   "department": zod.string(),
   "itemDescription": zod.string(),
   "quantity": zod.number(),
-  "vendorId": zod.number(),
+  "vendorId": zod.number().nullish(),
   "vendor": zod.object({
   "id": zod.number(),
   "companyName": zod.string(),
@@ -528,9 +528,16 @@ export const ListPurchaseRequestsResponseItem = zod.object({
   "transactionCount": zod.number().nullish(),
   "createdAt": zod.coerce.date()
 }).optional(),
+  "categoryId": zod.number().nullish(),
+  "category": zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+}).optional(),
   "reason": zod.string(),
   "managerEmail": zod.string(),
-  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
+  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
   "estimatedAmount": zod.number().nullish(),
   "finalAmount": zod.number().nullish(),
   "managerNote": zod.string().nullish(),
@@ -559,7 +566,7 @@ export const CreatePurchaseRequestBody = zod.object({
   "department": zod.string().min(1),
   "itemDescription": zod.string().min(1),
   "quantity": zod.number().min(1),
-  "vendorId": zod.number(),
+  "categoryId": zod.number().optional().describe('Omit for \"Other\" (no category fits) -- an admin assigns the actual vendor after manager approval.'),
   "reason": zod.string().min(1),
   "managerEmail": zod.string().email(),
   "estimatedAmount": zod.number().optional()
@@ -572,7 +579,7 @@ export const CreatePurchaseRequestResponse = zod.object({
   "department": zod.string(),
   "itemDescription": zod.string(),
   "quantity": zod.number(),
-  "vendorId": zod.number(),
+  "vendorId": zod.number().nullish(),
   "vendor": zod.object({
   "id": zod.number(),
   "companyName": zod.string(),
@@ -607,9 +614,16 @@ export const CreatePurchaseRequestResponse = zod.object({
   "transactionCount": zod.number().nullish(),
   "createdAt": zod.coerce.date()
 }).optional(),
+  "categoryId": zod.number().nullish(),
+  "category": zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+}).optional(),
   "reason": zod.string(),
   "managerEmail": zod.string(),
-  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
+  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
   "estimatedAmount": zod.number().nullish(),
   "finalAmount": zod.number().nullish(),
   "managerNote": zod.string().nullish(),
@@ -637,7 +651,7 @@ export const GetPurchaseRequestResponse = zod.object({
   "department": zod.string(),
   "itemDescription": zod.string(),
   "quantity": zod.number(),
-  "vendorId": zod.number(),
+  "vendorId": zod.number().nullish(),
   "vendor": zod.object({
   "id": zod.number(),
   "companyName": zod.string(),
@@ -672,9 +686,16 @@ export const GetPurchaseRequestResponse = zod.object({
   "transactionCount": zod.number().nullish(),
   "createdAt": zod.coerce.date()
 }).optional(),
+  "categoryId": zod.number().nullish(),
+  "category": zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+}).optional(),
   "reason": zod.string(),
   "managerEmail": zod.string(),
-  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
+  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
   "estimatedAmount": zod.number().nullish(),
   "finalAmount": zod.number().nullish(),
   "managerNote": zod.string().nullish(),
@@ -706,7 +727,7 @@ export const ApprovePurchaseRequestResponse = zod.object({
   "department": zod.string(),
   "itemDescription": zod.string(),
   "quantity": zod.number(),
-  "vendorId": zod.number(),
+  "vendorId": zod.number().nullish(),
   "vendor": zod.object({
   "id": zod.number(),
   "companyName": zod.string(),
@@ -741,9 +762,92 @@ export const ApprovePurchaseRequestResponse = zod.object({
   "transactionCount": zod.number().nullish(),
   "createdAt": zod.coerce.date()
 }).optional(),
+  "categoryId": zod.number().nullish(),
+  "category": zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+}).optional(),
   "reason": zod.string(),
   "managerEmail": zod.string(),
-  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
+  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
+  "estimatedAmount": zod.number().nullish(),
+  "finalAmount": zod.number().nullish(),
+  "managerNote": zod.string().nullish(),
+  "accountsNote": zod.string().nullish(),
+  "clarificationQuestion": zod.string().nullish(),
+  "clarificationAnswer": zod.string().nullish(),
+  "executedAt": zod.coerce.date().nullish(),
+  "executedBy": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional()
+})
+
+
+/**
+ * @summary Assign the vendor for a request once the manager has approved it (admin only)
+ */
+export const AssignPurchaseRequestVendorParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AssignPurchaseRequestVendorBody = zod.object({
+  "vendorId": zod.number()
+})
+
+export const AssignPurchaseRequestVendorResponse = zod.object({
+  "id": zod.number(),
+  "requestNumber": zod.string(),
+  "requesterEmail": zod.string(),
+  "department": zod.string(),
+  "itemDescription": zod.string(),
+  "quantity": zod.number(),
+  "vendorId": zod.number().nullish(),
+  "vendor": zod.object({
+  "id": zod.number(),
+  "companyName": zod.string(),
+  "contactPerson": zod.string().nullish(),
+  "contactEmail": zod.string().nullish(),
+  "contactPhone": zod.string().nullish(),
+  "bankName": zod.string().nullish(),
+  "bankAccountName": zod.string().nullish(),
+  "bankAccountNumber": zod.string().nullish(),
+  "iban": zod.string().nullish(),
+  "swiftCode": zod.string().nullish(),
+  "bankBranch": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "categoryIds": zod.array(zod.number()).optional(),
+  "categories": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})).optional(),
+  "documents": zod.array(zod.object({
+  "id": zod.number(),
+  "vendorId": zod.number(),
+  "documentType": zod.string(),
+  "documentNumber": zod.string().nullish(),
+  "expiryDate": zod.coerce.date().nullish(),
+  "fileUrl": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})).optional(),
+  "totalSpent": zod.number().nullish(),
+  "transactionCount": zod.number().nullish(),
+  "createdAt": zod.coerce.date()
+}).optional(),
+  "categoryId": zod.number().nullish(),
+  "category": zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+}).optional(),
+  "reason": zod.string(),
+  "managerEmail": zod.string(),
+  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
   "estimatedAmount": zod.number().nullish(),
   "finalAmount": zod.number().nullish(),
   "managerNote": zod.string().nullish(),
@@ -775,7 +879,7 @@ export const RejectPurchaseRequestResponse = zod.object({
   "department": zod.string(),
   "itemDescription": zod.string(),
   "quantity": zod.number(),
-  "vendorId": zod.number(),
+  "vendorId": zod.number().nullish(),
   "vendor": zod.object({
   "id": zod.number(),
   "companyName": zod.string(),
@@ -810,9 +914,16 @@ export const RejectPurchaseRequestResponse = zod.object({
   "transactionCount": zod.number().nullish(),
   "createdAt": zod.coerce.date()
 }).optional(),
+  "categoryId": zod.number().nullish(),
+  "category": zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+}).optional(),
   "reason": zod.string(),
   "managerEmail": zod.string(),
-  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
+  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
   "estimatedAmount": zod.number().nullish(),
   "finalAmount": zod.number().nullish(),
   "managerNote": zod.string().nullish(),
@@ -844,7 +955,7 @@ export const ClarifiyPurchaseRequestResponse = zod.object({
   "department": zod.string(),
   "itemDescription": zod.string(),
   "quantity": zod.number(),
-  "vendorId": zod.number(),
+  "vendorId": zod.number().nullish(),
   "vendor": zod.object({
   "id": zod.number(),
   "companyName": zod.string(),
@@ -879,9 +990,16 @@ export const ClarifiyPurchaseRequestResponse = zod.object({
   "transactionCount": zod.number().nullish(),
   "createdAt": zod.coerce.date()
 }).optional(),
+  "categoryId": zod.number().nullish(),
+  "category": zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+}).optional(),
   "reason": zod.string(),
   "managerEmail": zod.string(),
-  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
+  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
   "estimatedAmount": zod.number().nullish(),
   "finalAmount": zod.number().nullish(),
   "managerNote": zod.string().nullish(),
@@ -919,7 +1037,7 @@ export const RespondToClarificationResponse = zod.object({
   "department": zod.string(),
   "itemDescription": zod.string(),
   "quantity": zod.number(),
-  "vendorId": zod.number(),
+  "vendorId": zod.number().nullish(),
   "vendor": zod.object({
   "id": zod.number(),
   "companyName": zod.string(),
@@ -954,9 +1072,16 @@ export const RespondToClarificationResponse = zod.object({
   "transactionCount": zod.number().nullish(),
   "createdAt": zod.coerce.date()
 }).optional(),
+  "categoryId": zod.number().nullish(),
+  "category": zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+}).optional(),
   "reason": zod.string(),
   "managerEmail": zod.string(),
-  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
+  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
   "estimatedAmount": zod.number().nullish(),
   "finalAmount": zod.number().nullish(),
   "managerNote": zod.string().nullish(),
@@ -990,7 +1115,7 @@ export const ExecutePurchaseRequestResponse = zod.object({
   "department": zod.string(),
   "itemDescription": zod.string(),
   "quantity": zod.number(),
-  "vendorId": zod.number(),
+  "vendorId": zod.number().nullish(),
   "vendor": zod.object({
   "id": zod.number(),
   "companyName": zod.string(),
@@ -1025,9 +1150,16 @@ export const ExecutePurchaseRequestResponse = zod.object({
   "transactionCount": zod.number().nullish(),
   "createdAt": zod.coerce.date()
 }).optional(),
+  "categoryId": zod.number().nullish(),
+  "category": zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+}).optional(),
   "reason": zod.string(),
   "managerEmail": zod.string(),
-  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
+  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
   "estimatedAmount": zod.number().nullish(),
   "finalAmount": zod.number().nullish(),
   "managerNote": zod.string().nullish(),
@@ -1066,7 +1198,7 @@ export const ReorderPurchaseRequestResponse = zod.object({
   "department": zod.string(),
   "itemDescription": zod.string(),
   "quantity": zod.number(),
-  "vendorId": zod.number(),
+  "vendorId": zod.number().nullish(),
   "vendor": zod.object({
   "id": zod.number(),
   "companyName": zod.string(),
@@ -1101,9 +1233,16 @@ export const ReorderPurchaseRequestResponse = zod.object({
   "transactionCount": zod.number().nullish(),
   "createdAt": zod.coerce.date()
 }).optional(),
+  "categoryId": zod.number().nullish(),
+  "category": zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+}).optional(),
   "reason": zod.string(),
   "managerEmail": zod.string(),
-  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
+  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
   "estimatedAmount": zod.number().nullish(),
   "finalAmount": zod.number().nullish(),
   "managerNote": zod.string().nullish(),
@@ -1172,7 +1311,7 @@ export const GetRecentActivityResponseItem = zod.object({
   "department": zod.string(),
   "itemDescription": zod.string(),
   "quantity": zod.number(),
-  "vendorId": zod.number(),
+  "vendorId": zod.number().nullish(),
   "vendor": zod.object({
   "id": zod.number(),
   "companyName": zod.string(),
@@ -1207,9 +1346,16 @@ export const GetRecentActivityResponseItem = zod.object({
   "transactionCount": zod.number().nullish(),
   "createdAt": zod.coerce.date()
 }).optional(),
+  "categoryId": zod.number().nullish(),
+  "category": zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+}).optional(),
   "reason": zod.string(),
   "managerEmail": zod.string(),
-  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
+  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
   "estimatedAmount": zod.number().nullish(),
   "finalAmount": zod.number().nullish(),
   "managerNote": zod.string().nullish(),
@@ -1253,7 +1399,7 @@ export const GetReportResponse = zod.object({
   "department": zod.string(),
   "itemDescription": zod.string(),
   "quantity": zod.number(),
-  "vendorId": zod.number(),
+  "vendorId": zod.number().nullish(),
   "vendor": zod.object({
   "id": zod.number(),
   "companyName": zod.string(),
@@ -1288,9 +1434,16 @@ export const GetReportResponse = zod.object({
   "transactionCount": zod.number().nullish(),
   "createdAt": zod.coerce.date()
 }).optional(),
+  "categoryId": zod.number().nullish(),
+  "category": zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+}).optional(),
   "reason": zod.string(),
   "managerEmail": zod.string(),
-  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
+  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
   "estimatedAmount": zod.number().nullish(),
   "finalAmount": zod.number().nullish(),
   "managerNote": zod.string().nullish(),

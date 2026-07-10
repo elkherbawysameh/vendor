@@ -12,6 +12,7 @@ export type PurchaseRequestStatus = typeof PurchaseRequestStatus[keyof typeof Pu
 export const PurchaseRequestStatus = {
   pending_manager: 'pending_manager',
   pending_clarification_employee_manager: 'pending_clarification_employee_manager',
+  pending_vendor_assignment: 'pending_vendor_assignment',
   pending_clarification_employee_accounts: 'pending_clarification_employee_accounts',
   approved_by_manager: 'approved_by_manager',
   rejected_by_manager: 'rejected_by_manager',

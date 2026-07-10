@@ -2,7 +2,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "@/hooks/use-auth";
-import { useCreatePurchaseRequest, useListVendors } from "@workspace/api-client-react";
+import { useCreatePurchaseRequest, useListVendorCategories } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -20,7 +20,7 @@ const requestSchema = z.object({
   department: z.string().min(1, "Department is required"),
   itemDescription: z.string().min(3, "Description must be at least 3 characters"),
   quantity: z.coerce.number().min(1, "Quantity must be at least 1"),
-  vendorId: z.coerce.number().min(1, "Please select a vendor"),
+  categoryId: z.string().min(1, "Please select a category"),
   estimatedAmount: z.coerce.number().optional(),
   reason: z.string().min(10, "Please provide a detailed reason for this purchase"),
   managerEmail: z.string().email("Invalid email").endsWith("@qoyod.com", "Manager email must end with @qoyod.com"),
@@ -40,6 +40,8 @@ const DEPARTMENTS = [
   "IT"
 ];
 
+const OTHER_CATEGORY = "other";
+
 export default function NewRequestPage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -47,7 +49,7 @@ export default function NewRequestPage() {
   const queryClient = useQueryClient();
   const [successData, setSuccessData] = useState<{ id: number, requestNumber: string } | null>(null);
 
-  const { data: vendors, isLoading: vendorsLoading } = useListVendors();
+  const { data: categories, isLoading: categoriesLoading } = useListVendorCategories();
   const createMutation = useCreatePurchaseRequest();
 
   const form = useForm<RequestFormValues>({
@@ -64,11 +66,13 @@ export default function NewRequestPage() {
 
   const onSubmit = async (data: RequestFormValues) => {
     if (!user) return;
-    
+
     try {
+      const { categoryId, ...rest } = data;
       const response = await createMutation.mutateAsync({
         data: {
-          ...data,
+          ...rest,
+          categoryId: categoryId === OTHER_CATEGORY ? undefined : Number(categoryId),
           requesterEmail: user.email,
         }
       });
@@ -182,33 +186,34 @@ export default function NewRequestPage() {
               </div>
 
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">2. Vendor Information / معلومات المورد</h3>
+                <h3 className="text-lg font-semibold border-b pb-2">2. Purchase Category / فئة الشراء</h3>
                 <FormField
                   control={form.control}
-                  name="vendorId"
+                  name="categoryId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Select Vendor <span className="text-destructive">*</span></FormLabel>
-                      <Select 
-                        disabled={vendorsLoading} 
-                        onValueChange={(val) => field.onChange(Number(val))} 
-                        value={field.value ? String(field.value) : undefined}
+                      <FormLabel>Select Category <span className="text-destructive">*</span></FormLabel>
+                      <Select
+                        disabled={categoriesLoading}
+                        onValueChange={field.onChange}
+                        value={field.value}
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder={vendorsLoading ? "Loading vendors..." : "Select a vendor from the list"} />
+                            <SelectValue placeholder={categoriesLoading ? "Loading categories..." : "Select the category that best fits this purchase"} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {vendors?.map((vendor) => (
-                            <SelectItem key={vendor.id} value={String(vendor.id)}>
-                              {vendor.companyName} {vendor.contactEmail ? `(${vendor.contactEmail})` : ''}
+                          {categories?.map((category) => (
+                            <SelectItem key={category.id} value={String(category.id)}>
+                              {category.name}
                             </SelectItem>
                           ))}
+                          <SelectItem value={OTHER_CATEGORY}>Other</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormDescription>
-                        Can't find the vendor? Contact an admin to add them to the system first.
+                        The vendor itself will be assigned by an admin after your manager approves this request.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>

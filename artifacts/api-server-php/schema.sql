@@ -66,7 +66,10 @@ CREATE TABLE IF NOT EXISTS purchase_requests (
   department TEXT NOT NULL,
   item_description TEXT NOT NULL,
   quantity INT NOT NULL,
-  vendor_id INT UNSIGNED NOT NULL,
+  -- NULL until an admin assigns a vendor (see category_id / the
+  -- pending_vendor_assignment status). Requesters pick a category instead.
+  vendor_id INT UNSIGNED NULL,
+  category_id INT UNSIGNED NULL,
   reason TEXT NOT NULL,
   manager_email TEXT NOT NULL,
   status VARCHAR(64) NOT NULL DEFAULT 'pending_manager',
@@ -81,6 +84,7 @@ CREATE TABLE IF NOT EXISTS purchase_requests (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_pr_vendor (vendor_id),
+  INDEX idx_pr_category (category_id),
   INDEX idx_pr_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

@@ -21,6 +21,7 @@ import type {
 
 import type {
   ActionInput,
+  AssignVendorInput,
   AuthUser,
   ClarificationResponse,
   DashboardStats,
@@ -2002,6 +2003,77 @@ export const useApprovePurchaseRequest = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getApprovePurchaseRequestMutationOptions(options));
+    }
+
+export const getAssignPurchaseRequestVendorUrl = (id: number,) => {
+
+
+
+
+  return `/api/purchase-requests/${id}/assign-vendor`
+}
+
+/**
+ * @summary Assign the vendor for a request once the manager has approved it (admin only)
+ */
+export const assignPurchaseRequestVendor = async (id: number,
+    assignVendorInput: AssignVendorInput, options?: RequestInit): Promise<PurchaseRequest> => {
+
+  return customFetch<PurchaseRequest>(getAssignPurchaseRequestVendorUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(assignVendorInput)
+  }
+);}
+
+
+
+
+export const getAssignPurchaseRequestVendorMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof assignPurchaseRequestVendor>>, TError,{id: number;data: BodyType<AssignVendorInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof assignPurchaseRequestVendor>>, TError,{id: number;data: BodyType<AssignVendorInput>}, TContext> => {
+
+const mutationKey = ['assignPurchaseRequestVendor'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof assignPurchaseRequestVendor>>, {id: number;data: BodyType<AssignVendorInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  assignPurchaseRequestVendor(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AssignPurchaseRequestVendorMutationResult = NonNullable<Awaited<ReturnType<typeof assignPurchaseRequestVendor>>>
+    export type AssignPurchaseRequestVendorMutationBody = BodyType<AssignVendorInput>
+    export type AssignPurchaseRequestVendorMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Assign the vendor for a request once the manager has approved it (admin only)
+ */
+export const useAssignPurchaseRequestVendor = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof assignPurchaseRequestVendor>>, TError,{id: number;data: BodyType<AssignVendorInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof assignPurchaseRequestVendor>>,
+        TError,
+        {id: number;data: BodyType<AssignVendorInput>},
+        TContext
+      > => {
+      return useMutation(getAssignPurchaseRequestVendorMutationOptions(options));
     }
 
 export const getRejectPurchaseRequestUrl = (id: number,) => {

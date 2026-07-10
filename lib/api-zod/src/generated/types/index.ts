@@ -7,6 +7,7 @@
  */
 
 export * from './actionInput';
+export * from './assignVendorInput';
 export * from './authUser';
 export * from './authUserRole';
 export * from './clarificationResponse';

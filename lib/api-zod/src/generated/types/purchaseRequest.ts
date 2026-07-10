@@ -7,6 +7,7 @@
  */
 import type { PurchaseRequestStatus } from './purchaseRequestStatus';
 import type { Vendor } from './vendor';
+import type { VendorCategory } from './vendorCategory';
 
 export interface PurchaseRequest {
   id: number;
@@ -15,8 +16,12 @@ export interface PurchaseRequest {
   department: string;
   itemDescription: string;
   quantity: number;
-  vendorId: number;
+  /** @nullable */
+  vendorId?: number | null;
   vendor?: Vendor;
+  /** @nullable */
+  categoryId?: number | null;
+  category?: VendorCategory;
   reason: string;
   managerEmail: string;
   status: PurchaseRequestStatus;

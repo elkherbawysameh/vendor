@@ -1,15 +1,19 @@
 import { useAuth } from "@/hooks/use-auth";
-import { 
-  useGetPurchaseRequest, 
+import {
+  useGetPurchaseRequest,
   useListPurchaseRequestActivities,
   useApprovePurchaseRequest,
   useRejectPurchaseRequest,
   useClarifiyPurchaseRequest,
   useRespondToClarification,
   useExecutePurchaseRequest,
+  useAssignPurchaseRequestVendor,
+  useListVendors,
+  getListVendorsQueryKey,
   getGetPurchaseRequestQueryKey,
   getListPurchaseRequestActivitiesQueryKey,
 } from "@workspace/api-client-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -54,13 +58,19 @@ export default function RequestDetail() {
   const [note, setNote] = useState("");
   const [finalAmount, setFinalAmount] = useState("");
   const [clarificationAnswer, setClarificationAnswer] = useState("");
-  
+  const [selectedVendorId, setSelectedVendorId] = useState("");
+
   // Mutations
   const approveMut = useApprovePurchaseRequest();
   const rejectMut = useRejectPurchaseRequest();
   const clarifyMut = useClarifiyPurchaseRequest();
   const respondMut = useRespondToClarification();
   const executeMut = useExecutePurchaseRequest();
+  const assignVendorMut = useAssignPurchaseRequestVendor();
+
+  const { data: vendors, isLoading: vendorsLoading } = useListVendors(undefined, {
+    query: { enabled: request?.status === "pending_vendor_assignment" && user?.role === "admin", queryKey: getListVendorsQueryKey() },
+  });
 
   if (isLoading || !request || !user) {
     return (
@@ -136,6 +146,20 @@ export default function RequestDetail() {
         description: "An error occurred while processing your request.",
         variant: "destructive"
       });
+    }
+  };
+
+  const handleAssignVendor = async () => {
+    if (!selectedVendorId) return;
+    try {
+      await assignVendorMut.mutateAsync({ id, data: { vendorId: Number(selectedVendorId) } });
+      toast({ title: "Vendor assigned" });
+      queryClient.invalidateQueries({ queryKey: getGetPurchaseRequestQueryKey(id) });
+      queryClient.invalidateQueries({ queryKey: getListPurchaseRequestActivitiesQueryKey(id) });
+      queryClient.invalidateQueries({ queryKey: ["purchase-requests"] });
+      setSelectedVendorId("");
+    } catch (error) {
+      toast({ title: "Failed to assign vendor", variant: "destructive" });
     }
   };
 
@@ -252,6 +276,43 @@ export default function RequestDetail() {
               )}
             </CardContent>
           </Card>
+
+          {request.status === "pending_vendor_assignment" && (
+            <Card className="border-warning/30">
+              <CardHeader className="pb-4 border-b">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Building2 className="w-5 h-5 text-warning" />
+                  Vendor Assignment / تحديد المورد
+                </CardTitle>
+                <CardDescription>
+                  {request.category
+                    ? `The requester picked the "${request.category.name}" category.`
+                    : "The requester couldn't find a matching category (Other)."}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-6">
+                {user.role === "admin" ? (
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Select disabled={vendorsLoading} value={selectedVendorId} onValueChange={setSelectedVendorId}>
+                      <SelectTrigger className="sm:flex-1">
+                        <SelectValue placeholder={vendorsLoading ? "Loading vendors..." : "Select a vendor"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {vendors?.map((vendor) => (
+                          <SelectItem key={vendor.id} value={String(vendor.id)}>{vendor.companyName}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button onClick={handleAssignVendor} disabled={!selectedVendorId || assignVendorMut.isPending}>
+                      {assignVendorMut.isPending ? "Assigning..." : "Assign Vendor"}
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">Waiting for an admin to assign a vendor for this request.</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {request.vendor && (
             <Card>
