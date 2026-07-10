@@ -65,7 +65,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         isMobileMenuOpen ? "fixed inset-y-0 left-0 translate-x-0" : "max-md:-translate-x-full fixed md:relative"
       )}>
         <div className="p-6 flex items-center border-b border-sidebar-border/50">
-          <img src="/logo.png" alt="Qoyod" className="h-9 w-auto" />
+          <div className="bg-white rounded-lg px-3 py-2">
+            <img src="/logo.png" alt="Qoyod" className="h-7 w-auto" />
+          </div>
         </div>
 
         <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-1.5">
@@ -79,10 +81,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     ? "bg-primary text-primary-foreground font-medium shadow-sm" 
                     : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                 )}>
-                  <item.icon className={cn("w-5 h-5", isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-sidebar-accent-foreground")} />
+                  <item.icon className={cn("w-5 h-5", isActive ? "text-primary-foreground" : "text-sidebar-foreground/70 group-hover:text-sidebar-accent-foreground")} />
                   <div className="flex flex-col">
                     <span>{item.name}</span>
-                    <span className={cn("text-[10px] leading-tight", isActive ? "text-primary-foreground/80" : "text-muted-foreground/70")}>{item.nameAr}</span>
+                    <span className={cn("text-[10px] leading-tight", isActive ? "text-primary-foreground/80" : "text-sidebar-foreground/60")}>{item.nameAr}</span>
                   </div>
                 </div>
               </Link>
@@ -98,8 +100,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </AvatarFallback>
             </Avatar>
             <div className="flex flex-col overflow-hidden">
-              <span className="text-sm font-medium truncate" title={user.email}>{user.name || user.email.split('@')[0]}</span>
-              <Badge variant="outline" className="w-fit text-[10px] mt-0.5 capitalize px-1 py-0 h-4">
+              <span className="text-sm font-medium truncate text-sidebar-foreground" title={user.email}>{user.name || user.email.split('@')[0]}</span>
+              <Badge variant="outline" className="w-fit text-[10px] mt-0.5 capitalize px-1 py-0 h-4 text-sidebar-foreground/80 border-sidebar-border">
                 {role.replace('_', ' ')}
               </Badge>
             </div>

@@ -44,6 +44,12 @@
   --color-info: hsl(var(--info));
   --color-info-foreground: hsl(var(--info-foreground));
 
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+
   --font-sans: "Plus Jakarta Sans", "Cairo", sans-serif;
   
   --radius-sm: calc(var(--radius) - 4px);
@@ -91,7 +97,13 @@
   --border: 214 32% 91%;
   --input: 214 32% 91%;
   --ring: 214 60% 25%;
-  
+
+  --sidebar: 214 60% 20%; /* Solid navy so the mobile slide-in menu isn't transparent */
+  --sidebar-foreground: 210 40% 98%;
+  --sidebar-border: 214 45% 30%;
+  --sidebar-accent: 214 50% 28%;
+  --sidebar-accent-foreground: 210 40% 98%;
+
   --radius: 0.5rem;
 }
 
@@ -134,6 +146,12 @@
   --border: 215 28% 25%;
   --input: 215 28% 25%;
   --ring: 215 28% 40%;
+
+  --sidebar: 222 47% 8%;
+  --sidebar-foreground: 210 40% 98%;
+  --sidebar-border: 215 28% 20%;
+  --sidebar-accent: 217 33% 17%;
+  --sidebar-accent-foreground: 210 40% 98%;
 }
 
 @layer base {
