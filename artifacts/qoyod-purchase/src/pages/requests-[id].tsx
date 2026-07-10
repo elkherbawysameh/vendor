@@ -59,6 +59,7 @@ export default function RequestDetail() {
   const [finalAmount, setFinalAmount] = useState("");
   const [clarificationAnswer, setClarificationAnswer] = useState("");
   const [selectedVendorId, setSelectedVendorId] = useState("");
+  const [quotationUrl, setQuotationUrl] = useState("");
 
   // Mutations
   const approveMut = useApprovePurchaseRequest();
@@ -150,16 +151,23 @@ export default function RequestDetail() {
   };
 
   const handleAssignVendor = async () => {
-    if (!selectedVendorId) return;
+    if (!quotationUrl.trim() || (!request?.vendor && !selectedVendorId)) return;
     try {
-      await assignVendorMut.mutateAsync({ id, data: { vendorId: Number(selectedVendorId) } });
-      toast({ title: "Vendor assigned" });
+      await assignVendorMut.mutateAsync({
+        id,
+        data: {
+          quotationUrl,
+          vendorId: request?.vendor ? undefined : Number(selectedVendorId),
+        },
+      });
+      toast({ title: "Sent to accounts" });
       queryClient.invalidateQueries({ queryKey: getGetPurchaseRequestQueryKey(id) });
       queryClient.invalidateQueries({ queryKey: getListPurchaseRequestActivitiesQueryKey(id) });
       queryClient.invalidateQueries({ queryKey: ["purchase-requests"] });
       setSelectedVendorId("");
+      setQuotationUrl("");
     } catch (error) {
-      toast({ title: "Failed to assign vendor", variant: "destructive" });
+      toast({ title: "Failed to save", variant: "destructive" });
     }
   };
 
@@ -233,9 +241,19 @@ export default function RequestDetail() {
                   {request.finalAmount && (
                     <div className="bg-success/10 text-success px-3 py-1 rounded-full font-bold">Final: {formatCurrency(request.finalAmount)}</div>
                   )}
+                  {request.quotationUrl && (
+                    <a
+                      href={request.quotationUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="bg-info/10 text-info px-3 py-1 rounded-full font-medium hover:underline"
+                    >
+                      View Quotation
+                    </a>
+                  )}
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <Label className="text-muted-foreground">Business Justification / مبرر العمل</Label>
                 <div className="bg-muted/30 p-4 rounded-md text-sm leading-relaxed border">
@@ -282,33 +300,45 @@ export default function RequestDetail() {
               <CardHeader className="pb-4 border-b">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Building2 className="w-5 h-5 text-warning" />
-                  Vendor Assignment / تحديد المورد
+                  Vendor & Quotation / المورد وعرض السعر
                 </CardTitle>
                 <CardDescription>
-                  {request.category
-                    ? `The requester picked the "${request.category.name}" category.`
-                    : "The requester couldn't find a matching category (Other)."}
+                  {request.vendor
+                    ? `Vendor: ${request.vendor.companyName}. Attach the quotation to send this to accounts.`
+                    : request.category
+                      ? `The requester picked the "${request.category.name}" category -- pick the vendor and attach a quotation.`
+                      : "The requester couldn't find a matching category (Other) -- pick the vendor and attach a quotation."}
                 </CardDescription>
               </CardHeader>
               <CardContent className="pt-6">
                 {user.role === "admin" ? (
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <Select disabled={vendorsLoading} value={selectedVendorId} onValueChange={setSelectedVendorId}>
-                      <SelectTrigger className="sm:flex-1">
-                        <SelectValue placeholder={vendorsLoading ? "Loading vendors..." : "Select a vendor"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {vendors?.map((vendor) => (
-                          <SelectItem key={vendor.id} value={String(vendor.id)}>{vendor.companyName}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button onClick={handleAssignVendor} disabled={!selectedVendorId || assignVendorMut.isPending}>
-                      {assignVendorMut.isPending ? "Assigning..." : "Assign Vendor"}
+                  <div className="space-y-3">
+                    {!request.vendor && (
+                      <Select disabled={vendorsLoading} value={selectedVendorId} onValueChange={setSelectedVendorId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder={vendorsLoading ? "Loading vendors..." : "Select a vendor"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {vendors?.map((vendor) => (
+                            <SelectItem key={vendor.id} value={String(vendor.id)}>{vendor.companyName}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    <Input
+                      value={quotationUrl}
+                      onChange={(e) => setQuotationUrl(e.target.value)}
+                      placeholder="Quotation link (Google Drive)"
+                    />
+                    <Button
+                      onClick={handleAssignVendor}
+                      disabled={!quotationUrl.trim() || (!request.vendor && !selectedVendorId) || assignVendorMut.isPending}
+                    >
+                      {assignVendorMut.isPending ? "Sending..." : "Send to Accounts"}
                     </Button>
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground italic">Waiting for an admin to assign a vendor for this request.</p>
+                  <p className="text-sm text-muted-foreground italic">Waiting for an admin to {request.vendor ? "attach a quotation" : "assign a vendor and attach a quotation"}.</p>
                 )}
               </CardContent>
             </Card>

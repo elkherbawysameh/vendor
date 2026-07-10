@@ -174,6 +174,8 @@ export interface PurchaseRequest {
   /** @nullable */
   categoryId?: number | null;
   category?: VendorCategory;
+  /** @nullable */
+  quotationUrl?: string | null;
   reason: string;
   managerEmail: string;
   status: PurchaseRequestStatus;
@@ -218,7 +220,10 @@ export interface ActionInput {
 }
 
 export interface AssignVendorInput {
-  vendorId: number;
+  /** Required only if the request doesn't already have a vendor (e.g. not a reorder). */
+  vendorId?: number;
+  /** Google Drive link to the quotation. */
+  quotationUrl: string;
 }
 
 export interface ClarificationResponse {

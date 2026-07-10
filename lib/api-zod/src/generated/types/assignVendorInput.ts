@@ -7,5 +7,8 @@
  */
 
 export interface AssignVendorInput {
-  vendorId: number;
+  /** Required only if the request doesn't already have a vendor (e.g. not a reorder). */
+  vendorId?: number;
+  /** Google Drive link to the quotation. */
+  quotationUrl: string;
 }

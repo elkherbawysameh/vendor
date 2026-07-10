@@ -1,8 +1,8 @@
 <?php
 
 const PURCHASE_REQUEST_COLUMNS = "id, request_number AS requestNumber, requester_email AS requesterEmail, department,
-    item_description AS itemDescription, quantity, vendor_id AS vendorId, category_id AS categoryId, reason,
-    manager_email AS managerEmail, status,
+    item_description AS itemDescription, quantity, vendor_id AS vendorId, category_id AS categoryId,
+    quotation_url AS quotationUrl, reason, manager_email AS managerEmail, status,
     estimated_amount AS estimatedAmount, final_amount AS finalAmount, manager_note AS managerNote,
     accounts_note AS accountsNote, clarification_question AS clarificationQuestion,
     clarification_answer AS clarificationAnswer, executed_at AS executedAt, executed_by AS executedBy,
@@ -128,9 +128,9 @@ route('POST', '/purchase-requests/{id}/approve', function ($params) {
     $actorEmail = current_user_email() ?? $row['managerEmail'];
 
     if (in_array($row['status'], ['pending_manager', 'pending_clarification_employee_manager'])) {
-        // Reorders already carry a known vendor over -- skip straight to
-        // the accounts stage. Fresh requests wait for an admin to assign one.
-        $newStatus = $row['vendorId'] !== null ? 'approved_by_manager' : 'pending_vendor_assignment';
+        // Always goes through the admin next (even reorders with a known
+        // vendor) so a fresh quotation can be attached before accounts sees it.
+        $newStatus = 'pending_vendor_assignment';
         $actorNote = $body['note'] ?? 'تمت الموافقة من المدير';
     } elseif (in_array($row['status'], ['approved_by_manager', 'pending_clarification_employee_accounts'])) {
         $newStatus = 'approved_by_accounts';
@@ -160,20 +160,25 @@ route('POST', '/purchase-requests/{id}/assign-vendor', function ($params) {
     $row = get_purchase_request($id);
     if (!$row) error_response('Request not found', 404);
     if ($row['status'] !== 'pending_vendor_assignment') {
-        error_response('Request is not waiting for a vendor assignment', 400);
+        error_response('Request is not waiting for admin review', 400);
     }
 
     $body = read_json_body();
-    $vendorId = require_int($body, 'vendorId');
+    $quotationUrl = require_string($body, 'quotationUrl', 1);
+    if ($quotationUrl === null) error_response('quotationUrl is required', 400);
+
+    // Vendor is only required here if one isn't already set (fresh request);
+    // reorders already carry theirs over and just need a new quotation.
+    $vendorId = $row['vendorId'] !== null ? (int) $row['vendorId'] : require_int($body, 'vendorId');
     if (!$vendorId) error_response('vendorId is required', 400);
     $vendor = db_query_one('SELECT id, company_name AS companyName FROM vendors WHERE id = ?', [$vendorId]);
     if (!$vendor) error_response('Vendor not found', 404);
 
     db_execute(
-        'UPDATE purchase_requests SET vendor_id = ?, status = ?, updated_at = NOW() WHERE id = ?',
-        [$vendorId, 'approved_by_manager', $id]
+        'UPDATE purchase_requests SET vendor_id = ?, quotation_url = ?, status = ?, updated_at = NOW() WHERE id = ?',
+        [$vendorId, $quotationUrl, 'approved_by_manager', $id]
     );
-    log_activity($id, $actorEmail, 'vendor_assigned', 'تم تحديد المورد: ' . $vendor['companyName']);
+    log_activity($id, $actorEmail, 'vendor_assigned', 'تم تحديد المورد وإرفاق عرض السعر: ' . $vendor['companyName']);
 
     json_response(enrich_request(get_purchase_request($id)));
 });

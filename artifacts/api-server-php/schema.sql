@@ -70,6 +70,9 @@ CREATE TABLE IF NOT EXISTS purchase_requests (
   -- pending_vendor_assignment status). Requesters pick a category instead.
   vendor_id INT UNSIGNED NULL,
   category_id INT UNSIGNED NULL,
+  -- Quotation an admin attaches (Google Drive link) before the request
+  -- reaches accounts, regardless of whether the vendor was already known.
+  quotation_url TEXT NULL,
   reason TEXT NOT NULL,
   manager_email TEXT NOT NULL,
   status VARCHAR(64) NOT NULL DEFAULT 'pending_manager',

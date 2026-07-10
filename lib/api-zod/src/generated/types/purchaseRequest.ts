@@ -22,6 +22,8 @@ export interface PurchaseRequest {
   /** @nullable */
   categoryId?: number | null;
   category?: VendorCategory;
+  /** @nullable */
+  quotationUrl?: string | null;
   reason: string;
   managerEmail: string;
   status: PurchaseRequestStatus;

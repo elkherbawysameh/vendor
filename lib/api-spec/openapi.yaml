@@ -1058,6 +1058,8 @@ components:
           type: ["integer", "null"]
         category:
           $ref: "#/components/schemas/VendorCategory"
+        quotationUrl:
+          type: ["string", "null"]
         reason:
           type: string
         managerEmail:
@@ -1135,10 +1137,14 @@ components:
 
     AssignVendorInput:
       type: object
-      required: [vendorId]
+      required: [quotationUrl]
       properties:
         vendorId:
+          description: Required only if the request doesn't already have a vendor (e.g. not a reorder).
           type: integer
+        quotationUrl:
+          description: Google Drive link to the quotation.
+          type: string
 
     ClarificationResponse:
       type: object
