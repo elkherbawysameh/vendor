@@ -60,7 +60,8 @@ export default function VendorDetail() {
   const [docType, setDocType] = useState("");
   const [docNumber, setDocNumber] = useState("");
   const [docExpiry, setDocExpiry] = useState("");
-  
+  const [docFileUrl, setDocFileUrl] = useState("");
+
   const createDocMut = useCreateVendorDocument();
   const deleteDocMut = useDeleteVendorDocument();
 
@@ -72,6 +73,7 @@ export default function VendorDetail() {
           documentType: docType,
           documentNumber: docNumber,
           expiryDate: docExpiry ? new Date(docExpiry).toISOString() : undefined,
+          fileUrl: docFileUrl || undefined,
         }
       });
       toast({ title: "Document recorded successfully" });
@@ -80,6 +82,7 @@ export default function VendorDetail() {
       setDocType("");
       setDocNumber("");
       setDocExpiry("");
+      setDocFileUrl("");
     } catch (e) {
       toast({ title: "Upload failed", variant: "destructive" });
     }
@@ -216,6 +219,7 @@ export default function VendorDetail() {
                           <TableHead className="pl-6">Document Type</TableHead>
                           <TableHead>Number</TableHead>
                           <TableHead>Status / Expiry</TableHead>
+                          <TableHead>File</TableHead>
                           {isAdminOrAccounts && <TableHead className="text-right pr-6">Action</TableHead>}
                         </TableRow>
                       </TableHeader>
@@ -246,6 +250,20 @@ export default function VendorDetail() {
                                   </div>
                                 ) : (
                                   <span className="text-xs text-muted-foreground">No expiry</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {doc.fileUrl ? (
+                                  <a
+                                    href={doc.fileUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1 text-primary hover:underline text-sm"
+                                  >
+                                    <ExternalLink className="w-3.5 h-3.5" /> Open in Drive
+                                  </a>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">-</span>
                                 )}
                               </TableCell>
                               {isAdminOrAccounts && (
@@ -343,6 +361,17 @@ export default function VendorDetail() {
             <div className="space-y-2">
               <Label>Expiry Date</Label>
               <Input type="date" value={docExpiry} onChange={e => setDocExpiry(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Google Drive Link (Optional)</Label>
+              <Input
+                value={docFileUrl}
+                onChange={e => setDocFileUrl(e.target.value)}
+                placeholder="https://drive.google.com/..."
+              />
+              <p className="text-xs text-muted-foreground">
+                Upload the file to Google Drive, then paste its share link here.
+              </p>
             </div>
           </div>
           <DialogFooter>
