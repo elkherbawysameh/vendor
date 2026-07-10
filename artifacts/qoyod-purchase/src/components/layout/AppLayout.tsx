@@ -53,7 +53,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
       {/* Mobile Header */}
       <div className="md:hidden flex items-center justify-between p-4 border-b bg-card">
-        <img src="/logo.png" alt="Qoyod" className="h-7 w-auto" />
+        <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Qoyod" className="h-7 w-auto" />
         <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
           <Menu className="w-5 h-5" />
         </Button>
@@ -66,7 +66,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       )}>
         <div className="p-6 flex items-center border-b border-sidebar-border/50">
           <div className="bg-white rounded-lg px-3 py-2">
-            <img src="/logo.png" alt="Qoyod" className="h-7 w-auto" />
+            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Qoyod" className="h-7 w-auto" />
           </div>
         </div>
 

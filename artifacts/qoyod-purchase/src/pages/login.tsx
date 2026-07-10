@@ -36,7 +36,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-md shadow-lg border-primary/10">
         <CardHeader className="space-y-4 text-center items-center">
-          <img src="/logo.png" alt="Qoyod" className="h-14 w-auto mb-2" />
+          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Qoyod" className="h-14 w-auto mb-2" />
           <CardTitle className="text-2xl font-bold tracking-tight text-primary">Qoyod Procurement</CardTitle>
           <CardDescription>
             Sign in with your Qoyod Google account to access the Vendor & Purchase Management System
