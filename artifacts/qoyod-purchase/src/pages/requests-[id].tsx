@@ -124,6 +124,7 @@ export default function RequestDetail() {
       // Invalidate queries
       queryClient.invalidateQueries({ queryKey: getGetPurchaseRequestQueryKey(id) });
       queryClient.invalidateQueries({ queryKey: getListPurchaseRequestActivitiesQueryKey(id) });
+      queryClient.invalidateQueries({ queryKey: ["purchase-requests"] });
       
       setActionModal(null);
       setNote("");

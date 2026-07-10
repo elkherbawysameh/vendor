@@ -3,6 +3,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "@/hooks/use-auth";
 import { useCreatePurchaseRequest, useListVendors } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -43,6 +44,7 @@ export default function NewRequestPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
   const [successData, setSuccessData] = useState<{ id: number, requestNumber: string } | null>(null);
 
   const { data: vendors, isLoading: vendorsLoading } = useListVendors();
@@ -71,6 +73,7 @@ export default function NewRequestPage() {
         }
       });
       
+      queryClient.invalidateQueries({ queryKey: ["purchase-requests"] });
       setSuccessData({ id: response.id, requestNumber: response.requestNumber });
       window.scrollTo(0,0);
     } catch (error) {
