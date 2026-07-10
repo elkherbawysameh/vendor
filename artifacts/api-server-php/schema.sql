@@ -117,3 +117,20 @@ CREATE TABLE IF NOT EXISTS policies (
   uploaded_by TEXT NOT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Editable list backing the "Document Type" dropdown on vendor documents
+-- (previously a hardcoded list in the frontend).
+CREATE TABLE IF NOT EXISTS vendor_document_types (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255) NOT NULL UNIQUE,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO vendor_document_types (name) VALUES
+  ('Commercial Registration (CR)'),
+  ('VAT Certificate'),
+  ('Saudization Certificate'),
+  ('GOSI Certificate'),
+  ('Zakat & Tax Certificate'),
+  ('Other')
+ON DUPLICATE KEY UPDATE name = VALUES(name);

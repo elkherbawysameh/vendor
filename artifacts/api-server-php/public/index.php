@@ -31,6 +31,7 @@ require __DIR__ . '/../src/routes/health.php';
 require __DIR__ . '/../src/routes/auth.php';
 require __DIR__ . '/../src/routes/users.php';
 require __DIR__ . '/../src/routes/vendorCategories.php';
+require __DIR__ . '/../src/routes/vendorDocumentTypes.php';
 require __DIR__ . '/../src/routes/vendors.php';
 require __DIR__ . '/../src/routes/purchaseRequests.php';
 require __DIR__ . '/../src/routes/dashboard.php';

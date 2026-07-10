@@ -7,7 +7,8 @@ import {
   useDeleteVendorDocument
 } from "@workspace/api-client-react";
 import { getListVendorDocumentsQueryKey } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { listDocumentTypes } from "@/lib/admin-api";
 import { useParams, Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -48,11 +49,16 @@ export default function VendorDetail() {
   });
 
   const { data: documents, isLoading: docsLoading } = useListVendorDocuments(id, {
-    query: { enabled: !!id, queryKey: ["vendor-documents", id] }
+    query: { enabled: !!id, queryKey: getListVendorDocumentsQueryKey(id) }
   });
 
   const { data: report, isLoading: reportLoading } = useGetReport({ vendorId: id, type: 'detailed' }, {
     query: { enabled: !!id, queryKey: ["vendor-report", id] }
+  });
+
+  const { data: documentTypes } = useQuery({
+    queryKey: ["vendor-document-types"],
+    queryFn: listDocumentTypes,
   });
 
   // Doc upload state
@@ -238,7 +244,7 @@ export default function VendorDetail() {
                           
                           return (
                             <TableRow key={doc.id}>
-                              <TableCell className="pl-6 font-medium capitalize">{doc.documentType.replace(/_/g, ' ')}</TableCell>
+                              <TableCell className="pl-6 font-medium">{doc.documentType}</TableCell>
                               <TableCell className="font-mono text-sm">{doc.documentNumber || '-'}</TableCell>
                               <TableCell>
                                 {doc.expiryDate ? (
@@ -345,14 +351,14 @@ export default function VendorDetail() {
               <Select value={docType} onValueChange={setDocType}>
                 <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="commercial_registration">Commercial Registration (CR)</SelectItem>
-                  <SelectItem value="vat_certificate">VAT Certificate</SelectItem>
-                  <SelectItem value="saudization_certificate">Saudization Certificate</SelectItem>
-                  <SelectItem value="gosi_certificate">GOSI Certificate</SelectItem>
-                  <SelectItem value="zakat_certificate">Zakat & Tax Certificate</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  {documentTypes?.map((type) => (
+                    <SelectItem key={type.id} value={type.name}>{type.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                Need a new type? Manage them under Categories.
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Document/Registration Number</Label>

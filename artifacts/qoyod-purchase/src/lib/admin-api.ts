@@ -46,3 +46,21 @@ export const deletePurchaseRequest = (id: number) =>
 
 export const deleteAllPurchaseRequests = () =>
   customFetch<null>("/api/purchase-requests", { method: "DELETE" });
+
+export interface VendorDocumentType {
+  id: number;
+  name: string;
+  createdAt: string;
+}
+
+export const listDocumentTypes = () =>
+  customFetch<VendorDocumentType[]>("/api/vendor-document-types", { method: "GET" });
+
+export const createDocumentType = (name: string) =>
+  customFetch<VendorDocumentType>("/api/vendor-document-types", { method: "POST", body: JSON.stringify({ name }) });
+
+export const updateDocumentType = (id: number, name: string) =>
+  customFetch<VendorDocumentType>(`/api/vendor-document-types/${id}`, { method: "PUT", body: JSON.stringify({ name }) });
+
+export const deleteDocumentType = (id: number) =>
+  customFetch<null>(`/api/vendor-document-types/${id}`, { method: "DELETE" });
