@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Redirecting...</title>
+  <!--
+    GitHub Pages has no server-side SPA fallback (unlike the .htaccess used
+    on the Hostinger deployment), so any hard navigation to a route other
+    than the site root (e.g. logout, the post-login redirect) hits this
+    file instead of a 404 page. It bounces back to index.html, which
+    restores the original path via the decode script in index.html.
+    See https://github.com/rafgraph/spa-github-pages
+  -->
+  <script>
+    var pathSegmentsToKeep = 1; // keep "/vendor" from the GitHub Pages project path
+    var l = window.location;
+    l.replace(
+      l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+      l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?/' +
+      l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
+      (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+      l.hash
+    );
+  </script>
+</head>
+<body></body>
+</html>
