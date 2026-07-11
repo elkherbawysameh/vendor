@@ -1,9 +1,10 @@
 import { useAuth } from "@/hooks/use-auth";
-import { 
-  useGetVendor, 
+import {
+  useGetVendor,
   useListVendorDocuments,
   useGetReport,
   useCreateVendorDocument,
+  useUpdateVendorDocument,
   useDeleteVendorDocument
 } from "@workspace/api-client-react";
 import { getListVendorDocumentsQueryKey } from "@workspace/api-client-react";
@@ -16,10 +17,10 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { 
-  ArrowLeft, Building2, Mail, Phone, MapPin, Landmark, 
+import {
+  ArrowLeft, Building2, Mail, Phone, MapPin, Landmark,
   FileText, Upload, Calendar, AlertTriangle, CheckCircle2,
-  Trash2, ExternalLink
+  Trash2, ExternalLink, Edit
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useState } from "react";
@@ -63,34 +64,58 @@ export default function VendorDetail() {
 
   // Doc upload state
   const [docModal, setDocModal] = useState(false);
+  const [editingDocId, setEditingDocId] = useState<number | null>(null);
   const [docType, setDocType] = useState("");
   const [docNumber, setDocNumber] = useState("");
   const [docExpiry, setDocExpiry] = useState("");
   const [docFileUrl, setDocFileUrl] = useState("");
 
   const createDocMut = useCreateVendorDocument();
+  const updateDocMut = useUpdateVendorDocument();
   const deleteDocMut = useDeleteVendorDocument();
 
-  const handleUploadDoc = async () => {
+  const resetDocForm = () => {
+    setDocModal(false);
+    setEditingDocId(null);
+    setDocType("");
+    setDocNumber("");
+    setDocExpiry("");
+    setDocFileUrl("");
+  };
+
+  const openAddDoc = () => {
+    resetDocForm();
+    setDocModal(true);
+  };
+
+  const openEditDoc = (doc: NonNullable<typeof documents>[number]) => {
+    setEditingDocId(doc.id);
+    setDocType(doc.documentType);
+    setDocNumber(doc.documentNumber || "");
+    setDocExpiry(doc.expiryDate ? doc.expiryDate.slice(0, 10) : "");
+    setDocFileUrl(doc.fileUrl || "");
+    setDocModal(true);
+  };
+
+  const handleSaveDoc = async () => {
     try {
-      await createDocMut.mutateAsync({
-        vendorId: id,
-        data: {
-          documentType: docType,
-          documentNumber: docNumber,
-          expiryDate: docExpiry ? new Date(docExpiry).toISOString() : undefined,
-          fileUrl: docFileUrl || undefined,
-        }
-      });
-      toast({ title: "Document recorded successfully" });
+      const data = {
+        documentType: docType,
+        documentNumber: docNumber,
+        expiryDate: docExpiry ? new Date(docExpiry).toISOString() : undefined,
+        fileUrl: docFileUrl || undefined,
+      };
+      if (editingDocId) {
+        await updateDocMut.mutateAsync({ vendorId: id, docId: editingDocId, data });
+        toast({ title: "Document updated" });
+      } else {
+        await createDocMut.mutateAsync({ vendorId: id, data });
+        toast({ title: "Document recorded successfully" });
+      }
       queryClient.invalidateQueries({ queryKey: getListVendorDocumentsQueryKey(id) });
-      setDocModal(false);
-      setDocType("");
-      setDocNumber("");
-      setDocExpiry("");
-      setDocFileUrl("");
+      resetDocForm();
     } catch (e) {
-      toast({ title: "Upload failed", variant: "destructive" });
+      toast({ title: editingDocId ? "Update failed" : "Upload failed", variant: "destructive" });
     }
   };
 
@@ -208,7 +233,7 @@ export default function VendorDetail() {
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold">Vendor Documents</h3>
                 {isAdminOrAccounts && (
-                  <Button size="sm" onClick={() => setDocModal(true)}>
+                  <Button size="sm" onClick={openAddDoc}>
                     <Upload className="w-4 h-4 mr-2" /> Add Record
                   </Button>
                 )}
@@ -274,9 +299,14 @@ export default function VendorDetail() {
                               </TableCell>
                               {isAdminOrAccounts && (
                                 <TableCell className="text-right pr-6">
-                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteDoc(doc.id)}>
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
+                                  <div className="flex items-center justify-end gap-1">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => openEditDoc(doc)}>
+                                      <Edit className="w-4 h-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteDoc(doc.id)}>
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </div>
                                 </TableCell>
                               )}
                             </TableRow>
@@ -339,10 +369,10 @@ export default function VendorDetail() {
         </div>
       </div>
 
-      <Dialog open={docModal} onOpenChange={setDocModal}>
+      <Dialog open={docModal} onOpenChange={(open) => !open && resetDocForm()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Document Record</DialogTitle>
+            <DialogTitle>{editingDocId ? "Edit Document Record" : "Add Document Record"}</DialogTitle>
             <DialogDescription>Record a compliance document for this vendor.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -354,6 +384,9 @@ export default function VendorDetail() {
                   {documentTypes?.map((type) => (
                     <SelectItem key={type.id} value={type.name}>{type.name}</SelectItem>
                   ))}
+                  {docType && !documentTypes?.some((type) => type.name === docType) && (
+                    <SelectItem value={docType}>{docType}</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
@@ -381,9 +414,9 @@ export default function VendorDetail() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDocModal(false)}>Cancel</Button>
-            <Button onClick={handleUploadDoc} disabled={!docType || createDocMut.isPending}>
-              Save Record
+            <Button variant="outline" onClick={resetDocForm}>Cancel</Button>
+            <Button onClick={handleSaveDoc} disabled={!docType || createDocMut.isPending || updateDocMut.isPending}>
+              {editingDocId ? "Save Changes" : "Save Record"}
             </Button>
           </DialogFooter>
         </DialogContent>
