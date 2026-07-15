@@ -81,6 +81,10 @@ CREATE TABLE IF NOT EXISTS purchase_requests (
   invoice_url TEXT NULL,
   -- Total amount tied to quotation_url (purchase) or invoice_url (refund).
   quotation_amount DOUBLE NULL,
+  -- Message-ID of the first notification email sent for this request, so
+  -- every later email can reference it and thread together in the
+  -- recipient's inbox instead of showing up as unrelated messages.
+  email_thread_id VARCHAR(255) NULL,
   reason TEXT NOT NULL,
   manager_email TEXT NOT NULL,
   status VARCHAR(64) NOT NULL DEFAULT 'pending_manager',

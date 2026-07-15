@@ -27,7 +27,7 @@ export function SendNotificationButton({ requestId }: { requestId: number }) {
   return (
     <Button variant="outline" onClick={handleClick} disabled={isSending}>
       <Mail className="w-4 h-4 mr-2" />
-      {isSending ? "Sending..." : "Send Email Notification"}
+      {isSending ? "Sending..." : "Resend Notification Email"}
     </Button>
   );
 }

@@ -257,7 +257,7 @@ export default function RequestDetail() {
             </Link>
           )}
 
-          {!["executed", "rejected_by_manager", "rejected_by_accounts"].includes(request.status) && (
+          {request.status !== "executed" && (
             <SendNotificationButton requestId={id} />
           )}
         </div>

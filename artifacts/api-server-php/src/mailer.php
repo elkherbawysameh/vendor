@@ -4,6 +4,11 @@
 // for sending notification emails through a single Google Workspace mailbox
 // (smtp.gmail.com with an App Password). Talks plain SMTP + STARTTLS + AUTH
 // LOGIN, which is all Gmail/Workspace SMTP requires.
+//
+// Throws RuntimeException on any failure instead of calling error_response()
+// directly -- callers decide whether a failed send should surface as an HTTP
+// error (a manual "resend" request) or just be logged (an automatic
+// after-action notification, which shouldn't fail the action itself).
 
 function smtp_read_response($socket): string
 {
@@ -22,15 +27,22 @@ function smtp_expect($socket, string $expectedCode, string $context): void
     $response = smtp_read_response($socket);
     if (strpos($response, $expectedCode) !== 0) {
         fclose($socket);
-        error_response("Failed to send email ($context): " . trim($response), 500);
+        throw new \RuntimeException("SMTP $context failed: " . trim($response));
     }
 }
 
 /**
  * @param string[] $toEmails
  */
-function send_email(array $toEmails, ?string $bcc, string $subject, string $html, string $fromDisplayName): void
-{
+function send_email(
+    array $toEmails,
+    ?string $bcc,
+    string $subject,
+    string $html,
+    string $fromDisplayName,
+    ?string $messageId = null,
+    ?string $inReplyTo = null
+): void {
     $cfg = config();
     $host = $cfg['smtp_host'] ?? 'smtp.gmail.com';
     $port = (int) ($cfg['smtp_port'] ?? 587);
@@ -38,12 +50,12 @@ function send_email(array $toEmails, ?string $bcc, string $subject, string $html
     $password = $cfg['smtp_password'] ?? '';
 
     if (!$username || !$password) {
-        error_response('Email sending is not configured (missing SMTP credentials)', 500);
+        throw new \RuntimeException('Email sending is not configured (missing SMTP credentials)');
     }
 
     $socket = @stream_socket_client("tcp://$host:$port", $errno, $errstr, 15);
     if (!$socket) {
-        error_response("Could not connect to mail server: $errstr", 500);
+        throw new \RuntimeException("Could not connect to mail server: $errstr");
     }
 
     smtp_expect($socket, '220', 'greeting');
@@ -95,6 +107,17 @@ function send_email(array $toEmails, ?string $bcc, string $subject, string $html
         'Content-Type: text/html; charset=UTF-8',
         'Date: ' . date('r'),
     ];
+    if ($messageId) {
+        $headers[] = "Message-ID: $messageId";
+    }
+    if ($inReplyTo) {
+        // Referencing just the thread's first Message-ID (rather than the
+        // full chain) is enough for Gmail/Outlook to group these together,
+        // combined with the subject staying identical across every email
+        // sent for the same request.
+        $headers[] = "In-Reply-To: $inReplyTo";
+        $headers[] = "References: $inReplyTo";
+    }
 
     // Dot-stuffing: any body line starting with "." must be escaped by
     // doubling it, per the SMTP DATA command's end-of-message convention.

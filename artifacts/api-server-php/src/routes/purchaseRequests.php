@@ -3,6 +3,7 @@
 const PURCHASE_REQUEST_COLUMNS = "id, request_number AS requestNumber, type, requester_email AS requesterEmail, department,
     item_description AS itemDescription, quantity, vendor_id AS vendorId, category_id AS categoryId,
     quotation_url AS quotationUrl, invoice_url AS invoiceUrl, quotation_amount AS quotationAmount,
+    email_thread_id AS emailThreadId,
     reason, manager_email AS managerEmail, status,
     estimated_amount AS estimatedAmount, final_amount AS finalAmount, manager_note AS managerNote,
     accounts_note AS accountsNote, clarification_question AS clarificationQuestion,
@@ -95,7 +96,9 @@ function perform_approve(int $id, string $actorEmail, ?string $note): array
     );
     log_activity($id, $actorEmail, 'approved', $actorNote);
 
-    return enrich_request(get_purchase_request($id));
+    $updated = enrich_request(get_purchase_request($id));
+    notify_after_action($updated, $actorEmail);
+    return $updated;
 }
 
 function perform_reject(int $id, string $actorEmail, ?string $note): array
@@ -122,7 +125,9 @@ function perform_reject(int $id, string $actorEmail, ?string $note): array
     );
     log_activity($id, $actorEmail, 'rejected', $note ?? 'تم رفض الطلب');
 
-    return enrich_request(get_purchase_request($id));
+    $updated = enrich_request(get_purchase_request($id));
+    notify_after_action($updated, $actorEmail);
+    return $updated;
 }
 
 function perform_clarify(int $id, string $actorEmail, ?string $note): array
@@ -144,7 +149,9 @@ function perform_clarify(int $id, string $actorEmail, ?string $note): array
     );
     log_activity($id, $actorEmail, 'clarification_requested', $note);
 
-    return enrich_request(get_purchase_request($id));
+    $updated = enrich_request(get_purchase_request($id));
+    notify_after_action($updated, $actorEmail);
+    return $updated;
 }
 
 function perform_respond(
@@ -176,7 +183,9 @@ function perform_respond(
     );
     log_activity($id, $actorEmail, 'clarification_answered', $answer);
 
-    return enrich_request(get_purchase_request($id));
+    $updated = enrich_request(get_purchase_request($id));
+    notify_after_action($updated, $actorEmail);
+    return $updated;
 }
 
 // Notification-email support -- resolves who should be emailed next and
@@ -229,6 +238,11 @@ function create_action_token(int $requestId, string $action, string $actorEmail,
         [$token, $requestId, $action, $actorEmail, $expectedStatus]
     );
     return $token;
+}
+
+function generate_message_id(): string
+{
+    return '<' . bin2hex(random_bytes(16)) . '@qoyod-vendor-system>';
 }
 
 function notification_html(array $row, array $magicLinks, string $viewLink): string
@@ -284,17 +298,10 @@ function notification_html(array $row, array $magicLinks, string $viewLink): str
         . '</div>';
 }
 
-// POST /purchase-requests/{id}/notification-email
-route('POST', '/purchase-requests/{id}/notification-email', function ($params) {
-    $actorEmail = require_auth();
-    $id = (int) $params['id'];
-    $row = get_purchase_request($id);
-    if (!$row) error_response('Request not found', 404);
-
+function build_notification(array $row): ?array
+{
     $target = resolve_notification_targets($row);
-    if (!$target || empty($target['recipients'])) {
-        error_response('No notification applicable for the current status', 400);
-    }
+    if (!$target || empty($target['recipients'])) return null;
 
     $baseUrl = rtrim(config()['app_base_url'] ?? '', '/');
     // Best-effort actor attribution for the activity log: the specific
@@ -304,17 +311,79 @@ route('POST', '/purchase-requests/{id}/notification-email', function ($params) {
 
     $magicLinks = [];
     foreach ($target['actions'] as $action) {
-        $token = create_action_token($id, $action, $tokenActorEmail, $row['status']);
+        $token = create_action_token($row['id'], $action, $tokenActorEmail, $row['status']);
         $magicLinks[$action] = $baseUrl . '/magic/' . $token;
     }
-    $viewLink = $baseUrl . '/requests/' . $id;
+    $viewLink = $baseUrl . '/requests/' . $row['id'];
 
-    $subject = ($row['type'] === 'refund' ? 'Refund Request ' : 'Purchase Request ') . $row['requestNumber'];
-    $html = notification_html($row, $magicLinks, $viewLink);
+    return [
+        'recipients' => $target['recipients'],
+        'subject' => ($row['type'] === 'refund' ? 'Refund Request ' : 'Purchase Request ') . $row['requestNumber'],
+        'html' => notification_html($row, $magicLinks, $viewLink),
+    ];
+}
 
-    send_email($target['recipients'], 's.elkherbawy@qoyod.com', $subject, $html, $actorEmail . ' via Vendor System');
+// Sends (or re-sends) the notification email for a request's current
+// status. Every email for the same request threads together in the
+// recipient's inbox: the first email's Message-ID is stored on the request
+// (email_thread_id) and every later email references it. Throws on SMTP
+// failure -- callers that trigger this automatically after an action should
+// catch and log rather than let an email hiccup fail the action itself.
+function send_request_notification(array $row, string $actorEmail): array
+{
+    $notification = build_notification($row);
+    if (!$notification) return ['recipients' => []];
 
-    json_response(['sent' => true, 'to' => implode(', ', $target['recipients'])]);
+    $threadRoot = $row['emailThreadId'] ?? null;
+    $messageId = generate_message_id();
+    if (!$threadRoot) {
+        db_execute('UPDATE purchase_requests SET email_thread_id = ? WHERE id = ?', [$messageId, $row['id']]);
+    }
+
+    send_email(
+        $notification['recipients'],
+        's.elkherbawy@qoyod.com',
+        $notification['subject'],
+        $notification['html'],
+        $actorEmail . ' via Vendor System',
+        $messageId,
+        $threadRoot
+    );
+
+    return ['recipients' => $notification['recipients']];
+}
+
+// Auto-sends the next-step notification after an action, without letting an
+// SMTP failure affect the action's own success response.
+function notify_after_action(array $row, string $actorEmail): void
+{
+    try {
+        send_request_notification($row, $actorEmail);
+    } catch (\Throwable $e) {
+        error_log('Notification email failed for request ' . $row['id'] . ': ' . $e->getMessage());
+    }
+}
+
+// POST /purchase-requests/{id}/notification-email -- manual (re)send,
+// surfaces a failure to the caller instead of swallowing it.
+route('POST', '/purchase-requests/{id}/notification-email', function ($params) {
+    $actorEmail = require_auth();
+    $id = (int) $params['id'];
+    $row = get_purchase_request($id);
+    if (!$row) error_response('Request not found', 404);
+    $row = enrich_request($row);
+
+    try {
+        $result = send_request_notification($row, $actorEmail);
+    } catch (\Throwable $e) {
+        error_response('Failed to send email: ' . $e->getMessage(), 500);
+    }
+
+    if (empty($result['recipients'])) {
+        error_response('No notification applicable for the current status', 400);
+    }
+
+    json_response(['sent' => true, 'to' => implode(', ', $result['recipients'])]);
 });
 
 // GET /purchase-requests
@@ -368,7 +437,9 @@ route('POST', '/purchase-requests', function () {
     log_activity($id, $created['requesterEmail'], 'submitted',
         ($type === 'refund' ? 'طلب استرداد جديد: ' : 'طلب شراء جديد: ') . $created['itemDescription']);
 
-    json_response(enrich_request($created), 201);
+    $enriched = enrich_request($created);
+    notify_after_action($enriched, $created['requesterEmail']);
+    json_response($enriched, 201);
 });
 
 // GET /purchase-requests/{id}
@@ -419,7 +490,9 @@ route('POST', '/purchase-requests/{id}/assign-vendor', function ($params) {
     );
     log_activity($id, $actorEmail, 'vendor_assigned', 'تم تحديد المورد وإرفاق عرض السعر: ' . $vendor['companyName']);
 
-    json_response(enrich_request(get_purchase_request($id)));
+    $updated = enrich_request(get_purchase_request($id));
+    notify_after_action($updated, $actorEmail);
+    json_response($updated);
 });
 
 // POST /purchase-requests/{id}/submit-invoice
@@ -445,7 +518,9 @@ route('POST', '/purchase-requests/{id}/submit-invoice', function ($params) {
     );
     log_activity($id, $actorEmail, 'invoice_submitted', 'تم إرفاق الفاتورة بمبلغ إجمالي ' . $totalAmount);
 
-    json_response(enrich_request(get_purchase_request($id)));
+    $updated = enrich_request(get_purchase_request($id));
+    notify_after_action($updated, $actorEmail);
+    json_response($updated);
 });
 
 // POST /purchase-requests/{id}/reject
