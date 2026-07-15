@@ -32,4 +32,13 @@ return [
     // links). Intentionally the GitHub Pages staging URL, not the
     // production Hostinger domain, per product requirement.
     'app_base_url' => getenv('APP_BASE_URL') ?: 'https://elkherbawysameh.github.io/vendor',
+
+    // SMTP credentials for a single Google Workspace mailbox that sends all
+    // notification emails. smtp_password must be a Google "App Password"
+    // (Google Account -> Security -> 2-Step Verification -> App passwords),
+    // not the account's normal login password.
+    'smtp_host' => getenv('SMTP_HOST') ?: 'smtp.gmail.com',
+    'smtp_port' => getenv('SMTP_PORT') ?: 587,
+    'smtp_username' => getenv('SMTP_USERNAME') ?: '',
+    'smtp_password' => getenv('SMTP_PASSWORD') ?: '',
 ];

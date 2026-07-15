@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { getNotificationEmail, openMailto } from "@/lib/notifications";
+import { sendNotificationEmail } from "@/lib/notifications";
 import { Mail } from "lucide-react";
 
 export function SendNotificationButton({ requestId }: { requestId: number }) {
@@ -11,11 +11,11 @@ export function SendNotificationButton({ requestId }: { requestId: number }) {
   const handleClick = async () => {
     setIsSending(true);
     try {
-      const email = await getNotificationEmail(requestId);
-      openMailto(email);
+      const result = await sendNotificationEmail(requestId);
+      toast({ title: "Email sent", description: `Notified: ${result.to}` });
     } catch (error) {
       toast({
-        title: "Couldn't prepare the notification email",
+        title: "Couldn't send the notification email",
         description: "Please try again.",
         variant: "destructive",
       });
@@ -27,7 +27,7 @@ export function SendNotificationButton({ requestId }: { requestId: number }) {
   return (
     <Button variant="outline" onClick={handleClick} disabled={isSending}>
       <Mail className="w-4 h-4 mr-2" />
-      {isSending ? "Preparing..." : "Send Email Notification"}
+      {isSending ? "Sending..." : "Send Email Notification"}
     </Button>
   );
 }

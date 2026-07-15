@@ -1,19 +1,12 @@
 import { customFetch } from "@workspace/api-client-react";
 
-export interface NotificationEmail {
+export interface NotificationEmailResult {
+  sent: boolean;
   to: string;
-  bcc: string;
-  subject: string;
-  body: string;
 }
 
-export const getNotificationEmail = (id: number) =>
-  customFetch<NotificationEmail>(`/api/purchase-requests/${id}/notification-email`, { method: "POST" });
-
-export function openMailto({ to, bcc, subject, body }: NotificationEmail) {
-  const params = new URLSearchParams({ bcc, subject, body });
-  window.location.href = `mailto:${to}?${params.toString()}`;
-}
+export const sendNotificationEmail = (id: number) =>
+  customFetch<NotificationEmailResult>(`/api/purchase-requests/${id}/notification-email`, { method: "POST" });
 
 export interface MagicActionPreview {
   action: "approve" | "reject" | "clarify" | "respond";

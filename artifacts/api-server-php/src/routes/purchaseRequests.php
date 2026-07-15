@@ -181,7 +181,8 @@ function perform_respond(
 
 // Notification-email support -- resolves who should be emailed next and
 // which magic-link actions (if any) make sense for the request's current
-// status, mints single-use tokens, and builds the plain-text mailto body.
+// status, mints single-use tokens, and sends an HTML email via send_email()
+// (see src/mailer.php) through one configured Google Workspace mailbox.
 
 function resolve_notification_targets(array $row): ?array
 {
@@ -230,47 +231,62 @@ function create_action_token(int $requestId, string $action, string $actorEmail,
     return $token;
 }
 
-function notification_body(array $row, array $magicLinks, string $viewLink): string
+function notification_html(array $row, array $magicLinks, string $viewLink): string
 {
-    $actionLabels = [
-        'approve' => 'الموافقة على الطلب',
-        'reject' => 'رفض الطلب',
-        'clarify' => 'طلب توضيح',
-        'respond' => 'الرد على الاستفسار',
+    $actionMeta = [
+        'approve' => ['label' => 'Approve', 'color' => '#16a34a'],
+        'reject' => ['label' => 'Reject', 'color' => '#dc2626'],
+        'clarify' => ['label' => 'Request Clarification', 'color' => '#2563eb'],
+        'respond' => ['label' => 'Respond', 'color' => '#2563eb'],
     ];
 
-    $lines = [];
-    $lines[] = 'تفاصيل الطلب';
-    $lines[] = str_repeat('-', 24);
-    $lines[] = 'رقم الطلب: ' . $row['requestNumber'];
-    $lines[] = 'النوع: ' . ($row['type'] === 'refund' ? 'طلب استرداد' : 'طلب شراء');
-    $lines[] = 'مقدم الطلب: ' . $row['requesterEmail'];
-    $lines[] = 'القسم: ' . $row['department'];
-    $lines[] = 'السبب/الوصف: ' . $row['reason'];
-    $lines[] = 'الكمية: ' . $row['quantity'];
-    if ($row['estimatedAmount'] !== null) {
-        $lines[] = 'المبلغ التقديري: ' . $row['estimatedAmount'];
-    }
+    $cellStyle = 'padding:8px 12px;border:1px solid #e5e7eb;text-align:left;';
+    $labelStyle = $cellStyle . 'background:#f9fafb;font-weight:600;width:220px;';
+
+    $tableRows = [
+        ['Requester', htmlspecialchars($row['requesterEmail'])],
+        ['Item Description', htmlspecialchars($row['itemDescription'])],
+        ['Quantity', htmlspecialchars((string) $row['quantity'])],
+        ['Estimated Total Amount (EGP)', $row['estimatedAmount'] !== null ? htmlspecialchars((string) $row['estimatedAmount']) : '-'],
+        ['Category', htmlspecialchars($row['category']['name'] ?? '-')],
+        ['Department', htmlspecialchars($row['department'])],
+        ['Reason for Request', nl2br(htmlspecialchars($row['reason']))],
+    ];
     if ($row['quotationAmount'] !== null) {
-        $lines[] = ($row['type'] === 'refund' ? 'إجمالي الفاتورة: ' : 'مبلغ عرض السعر: ') . $row['quotationAmount'];
+        $tableRows[] = [
+            $row['type'] === 'refund' ? 'Invoice Total' : 'Quotation Amount',
+            htmlspecialchars((string) $row['quotationAmount']),
+        ];
     }
-    $lines[] = '';
 
+    $tableHtml = '<table style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:14px;">';
+    foreach ($tableRows as $tr) {
+        $tableHtml .= '<tr><td style="' . $labelStyle . '">' . $tr[0] . '</td><td style="' . $cellStyle . '">' . $tr[1] . '</td></tr>';
+    }
+    $tableHtml .= '</table>';
+
+    $buttonsHtml = '';
     foreach ($magicLinks as $action => $url) {
-        $lines[] = ($actionLabels[$action] ?? $action) . ':';
-        $lines[] = $url;
-        $lines[] = '';
+        $meta = $actionMeta[$action] ?? ['label' => ucfirst($action), 'color' => '#374151'];
+        $buttonsHtml .= '<a href="' . $url . '" style="display:inline-block;margin:4px 8px 4px 0;padding:10px 20px;background:'
+            . $meta['color'] . ';color:#ffffff;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;font-weight:bold;">'
+            . $meta['label'] . '</a>';
     }
 
-    $lines[] = 'أو افتح الطلب مباشرة في النظام:';
-    $lines[] = $viewLink;
+    $requestNumber = htmlspecialchars($row['requestNumber']);
+    $typeLabel = $row['type'] === 'refund' ? 'Refund Request' : 'Purchase Request';
 
-    return implode("\n", $lines);
+    return '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">'
+        . '<h2 style="color:#111827;">' . $typeLabel . ' &mdash; ' . $requestNumber . '</h2>'
+        . $tableHtml
+        . '<div style="margin-top:24px;">' . $buttonsHtml . '</div>'
+        . '<p style="margin-top:24px;font-size:13px;"><a href="' . $viewLink . '" style="color:#2563eb;">Open this request in the system</a></p>'
+        . '</div>';
 }
 
 // POST /purchase-requests/{id}/notification-email
 route('POST', '/purchase-requests/{id}/notification-email', function ($params) {
-    require_auth();
+    $actorEmail = require_auth();
     $id = (int) $params['id'];
     $row = get_purchase_request($id);
     if (!$row) error_response('Request not found', 404);
@@ -293,12 +309,12 @@ route('POST', '/purchase-requests/{id}/notification-email', function ($params) {
     }
     $viewLink = $baseUrl . '/requests/' . $id;
 
-    json_response([
-        'to' => implode(',', $target['recipients']),
-        'bcc' => 's.elkherbawy@qoyod.com',
-        'subject' => 'طلب ' . ($row['type'] === 'refund' ? 'استرداد' : 'شراء') . ' - ' . $row['requestNumber'],
-        'body' => notification_body($row, $magicLinks, $viewLink),
-    ]);
+    $subject = ($row['type'] === 'refund' ? 'Refund Request ' : 'Purchase Request ') . $row['requestNumber'];
+    $html = notification_html($row, $magicLinks, $viewLink);
+
+    send_email($target['recipients'], 's.elkherbawy@qoyod.com', $subject, $html, $actorEmail . ' via Vendor System');
+
+    json_response(['sent' => true, 'to' => implode(', ', $target['recipients'])]);
 });
 
 // GET /purchase-requests
