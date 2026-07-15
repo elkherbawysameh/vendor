@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Download, FileText, Search } from "lucide-react";
+import { Download, FileText, Search, Printer } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { getStatusInfo } from "@/lib/constants";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,7 @@ export default function ReportsPage() {
   const [vendorId, setVendorId] = useState<string>("all");
   const [month, setMonth] = useState<string>("all");
   const [reportType, setReportType] = useState<"summary" | "detailed">("detailed");
+  const [requestType, setRequestType] = useState<string>("all");
 
   // Generate last 12 months for dropdown
   const months = Array.from({ length: 12 }).map((_, i) => {
@@ -32,6 +33,7 @@ export default function ReportsPage() {
   const queryParams: any = { type: reportType };
   if (vendorId !== "all") queryParams.vendorId = parseInt(vendorId);
   if (month !== "all") queryParams.month = month;
+  if (requestType !== "all") queryParams.requestType = requestType;
 
   const { data: report, isLoading } = useGetReport(queryParams, {
     query: {
@@ -48,10 +50,11 @@ export default function ReportsPage() {
     if (!report?.requests || report.requests.length === 0) return;
 
     // Simple CSV generator
-    const headers = ["PR Number", "Date", "Requester", "Department", "Vendor", "Item", "Status", "Amount (EGP)"];
-    
+    const headers = ["PR Number", "Type", "Date", "Requester", "Department", "Vendor", "Item", "Status", "Amount (EGP)"];
+
     const rows = report.requests.map(req => [
       req.requestNumber,
+      req.type === "refund" ? "Refund" : "Purchase",
       new Date(req.createdAt).toISOString().split('T')[0],
       req.requesterEmail,
       req.department,
@@ -66,7 +69,8 @@ export default function ReportsPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `qoyod-purchases-${month === 'all' ? 'all-time' : month}.csv`);
+    const typeLabel = requestType === "all" ? "all-requests" : requestType === "refund" ? "refunds" : "purchases";
+    link.setAttribute("download", `qoyod-${typeLabel}-${month === 'all' ? 'all-time' : month}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -79,13 +83,29 @@ export default function ReportsPage() {
           <h1 className="text-2xl font-bold text-primary">Financial Reports</h1>
           <p className="text-muted-foreground text-sm">Analyze procurement spending / تحليل المصروفات</p>
         </div>
-        <Button onClick={handleExport} disabled={!report || report.requests.length === 0} variant="outline" className="bg-white">
-          <Download className="w-4 h-4 mr-2" /> Export CSV
-        </Button>
+        <div className="flex gap-2 print:hidden">
+          <Button onClick={() => window.print()} variant="outline" className="bg-white">
+            <Printer className="w-4 h-4 mr-2" /> Print
+          </Button>
+          <Button onClick={handleExport} disabled={!report || report.requests.length === 0} variant="outline" className="bg-white">
+            <Download className="w-4 h-4 mr-2" /> Export CSV
+          </Button>
+        </div>
       </div>
 
-      <Card className="bg-muted/10 border-dashed">
-        <CardContent className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <Card className="bg-muted/10 border-dashed print:hidden">
+        <CardContent className="p-4 grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="space-y-1.5">
+            <Label className="text-xs uppercase text-muted-foreground">Request Type</Label>
+            <Select value={requestType} onValueChange={setRequestType}>
+              <SelectTrigger className="bg-background"><SelectValue placeholder="All Types" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="purchase">Purchase Requests</SelectItem>
+                <SelectItem value="refund">Refund Requests</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="space-y-1.5">
             <Label className="text-xs uppercase text-muted-foreground">Filter by Vendor</Label>
             <Select value={vendorId} onValueChange={setVendorId}>

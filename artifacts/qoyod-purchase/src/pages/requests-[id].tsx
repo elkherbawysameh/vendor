@@ -8,6 +8,7 @@ import {
   useRespondToClarification,
   useExecutePurchaseRequest,
   useAssignPurchaseRequestVendor,
+  useSubmitPurchaseRequestInvoice,
   useListVendors,
   getListVendorsQueryKey,
   getGetPurchaseRequestQueryKey,
@@ -23,7 +24,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, FileText, Activity, AlertCircle, CheckCircle, Clock, Send, DollarSign, Building2 } from "lucide-react";
+import { ArrowLeft, FileText, Activity, AlertCircle, CheckCircle, Clock, Send, DollarSign, Building2, Printer, Receipt } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { getStatusInfo } from "@/lib/constants";
 import { useState } from "react";
@@ -60,6 +61,9 @@ export default function RequestDetail() {
   const [clarificationAnswer, setClarificationAnswer] = useState("");
   const [selectedVendorId, setSelectedVendorId] = useState("");
   const [quotationUrl, setQuotationUrl] = useState("");
+  const [quotationAmount, setQuotationAmount] = useState("");
+  const [invoiceUrl, setInvoiceUrl] = useState("");
+  const [invoiceAmount, setInvoiceAmount] = useState("");
 
   // Mutations
   const approveMut = useApprovePurchaseRequest();
@@ -68,6 +72,7 @@ export default function RequestDetail() {
   const respondMut = useRespondToClarification();
   const executeMut = useExecutePurchaseRequest();
   const assignVendorMut = useAssignPurchaseRequestVendor();
+  const submitInvoiceMut = useSubmitPurchaseRequestInvoice();
 
   const { data: vendors, isLoading: vendorsLoading } = useListVendors(undefined, {
     query: { enabled: request?.status === "pending_vendor_assignment" && user?.role === "admin", queryKey: getListVendorsQueryKey() },
@@ -106,9 +111,14 @@ export default function RequestDetail() {
     (request.status === "pending_clarification_employee_manager" || 
      request.status === "pending_clarification_employee_accounts");
 
-  const canExecute = 
-    request.status === "approved_by_accounts" && 
+  const canExecute =
+    request.status === "approved_by_accounts" &&
     (isAccountsEmployee || isAccountsManager);
+
+  const canPrint = request.status === "approved_by_accounts" || request.status === "executed";
+
+  const canSubmitInvoice =
+    request.type === "refund" && request.status === "pending_employee_invoice" && isRequester;
 
   const handleAction = async () => {
     try {
@@ -151,12 +161,13 @@ export default function RequestDetail() {
   };
 
   const handleAssignVendor = async () => {
-    if (!quotationUrl.trim() || (!request?.vendor && !selectedVendorId)) return;
+    if (!quotationUrl.trim() || !quotationAmount || (!request?.vendor && !selectedVendorId)) return;
     try {
       await assignVendorMut.mutateAsync({
         id,
         data: {
           quotationUrl,
+          quotationAmount: Number(quotationAmount),
           vendorId: request?.vendor ? undefined : Number(selectedVendorId),
         },
       });
@@ -166,6 +177,25 @@ export default function RequestDetail() {
       queryClient.invalidateQueries({ queryKey: ["purchase-requests"] });
       setSelectedVendorId("");
       setQuotationUrl("");
+      setQuotationAmount("");
+    } catch (error) {
+      toast({ title: "Failed to save", variant: "destructive" });
+    }
+  };
+
+  const handleSubmitInvoice = async () => {
+    if (!invoiceUrl.trim() || !invoiceAmount) return;
+    try {
+      await submitInvoiceMut.mutateAsync({
+        id,
+        data: { invoiceUrl, totalAmount: Number(invoiceAmount) },
+      });
+      toast({ title: "Sent to accounts" });
+      queryClient.invalidateQueries({ queryKey: getGetPurchaseRequestQueryKey(id) });
+      queryClient.invalidateQueries({ queryKey: getListPurchaseRequestActivitiesQueryKey(id) });
+      queryClient.invalidateQueries({ queryKey: ["purchase-requests"] });
+      setInvoiceUrl("");
+      setInvoiceAmount("");
     } catch (error) {
       toast({ title: "Failed to save", variant: "destructive" });
     }
@@ -216,6 +246,15 @@ export default function RequestDetail() {
               Execute Purchase
             </Button>
           )}
+
+          {canPrint && (
+            <Link href={`/requests/${id}/print`} target="_blank">
+              <Button variant="outline">
+                <Printer className="w-4 h-4 mr-2" />
+                Print
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -241,6 +280,11 @@ export default function RequestDetail() {
                   {request.finalAmount && (
                     <div className="bg-success/10 text-success px-3 py-1 rounded-full font-bold">Final: {formatCurrency(request.finalAmount)}</div>
                   )}
+                  {request.quotationAmount != null && (
+                    <div className="bg-muted px-3 py-1 rounded-full text-muted-foreground">
+                      {request.type === "refund" ? "Total" : "Quotation Amount"}: <span className="font-bold text-foreground">{formatCurrency(request.quotationAmount)}</span>
+                    </div>
+                  )}
                   {request.quotationUrl && (
                     <a
                       href={request.quotationUrl}
@@ -249,6 +293,16 @@ export default function RequestDetail() {
                       className="bg-info/10 text-info px-3 py-1 rounded-full font-medium hover:underline"
                     >
                       View Quotation
+                    </a>
+                  )}
+                  {request.invoiceUrl && (
+                    <a
+                      href={request.invoiceUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="bg-info/10 text-info px-3 py-1 rounded-full font-medium hover:underline"
+                    >
+                      View Invoice
                     </a>
                   )}
                 </div>
@@ -330,15 +384,66 @@ export default function RequestDetail() {
                       onChange={(e) => setQuotationUrl(e.target.value)}
                       placeholder="Quotation link (Google Drive)"
                     />
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={quotationAmount}
+                      onChange={(e) => setQuotationAmount(e.target.value)}
+                      placeholder="Quotation total amount (EGP)"
+                    />
                     <Button
                       onClick={handleAssignVendor}
-                      disabled={!quotationUrl.trim() || (!request.vendor && !selectedVendorId) || assignVendorMut.isPending}
+                      disabled={!quotationUrl.trim() || !quotationAmount || (!request.vendor && !selectedVendorId) || assignVendorMut.isPending}
                     >
                       {assignVendorMut.isPending ? "Sending..." : "Send to Accounts"}
                     </Button>
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground italic">Waiting for an admin to {request.vendor ? "attach a quotation" : "assign a vendor and attach a quotation"}.</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {request.type === "refund" && request.status === "pending_employee_invoice" && (
+            <Card className="border-warning/30">
+              <CardHeader className="pb-4 border-b">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Receipt className="w-5 h-5 text-warning" />
+                  Attach Invoice / إرفاق الفاتورة
+                </CardTitle>
+                <CardDescription>
+                  {canSubmitInvoice
+                    ? "Your manager approved this refund. Attach your invoice/receipt and the total amount to send it to accounts."
+                    : "Waiting for the requester to attach an invoice and total amount."}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-6">
+                {canSubmitInvoice ? (
+                  <div className="space-y-3">
+                    <Input
+                      value={invoiceUrl}
+                      onChange={(e) => setInvoiceUrl(e.target.value)}
+                      placeholder="Invoice/receipt link (Google Drive)"
+                    />
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={invoiceAmount}
+                      onChange={(e) => setInvoiceAmount(e.target.value)}
+                      placeholder="Total amount (EGP)"
+                    />
+                    <Button
+                      onClick={handleSubmitInvoice}
+                      disabled={!invoiceUrl.trim() || !invoiceAmount || submitInvoiceMut.isPending}
+                    >
+                      {submitInvoiceMut.isPending ? "Sending..." : "Send to Accounts"}
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">Waiting for the requester to attach an invoice.</p>
                 )}
               </CardContent>
             </Card>

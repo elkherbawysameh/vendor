@@ -6,6 +6,9 @@ route('GET', '/reports/purchase-requests', function () {
     $vendorId = $_GET['vendorId'] ?? null;
     $month = $_GET['month'] ?? null;
     $type = $_GET['type'] ?? 'detailed';
+    // Filters which requests go into the report (purchase vs refund) -- named
+    // "requestType" to avoid colliding with the report-shape "type" param above.
+    $requestType = $_GET['requestType'] ?? null;
 
     $rows = db_query('SELECT ' . PURCHASE_REQUEST_COLUMNS . ' FROM purchase_requests ORDER BY created_at DESC');
 
@@ -17,6 +20,9 @@ route('GET', '/reports/purchase-requests', function () {
             $rowMonth = date('Y-m', strtotime($r['createdAt']));
             return $rowMonth === $month;
         }));
+    }
+    if ($requestType) {
+        $rows = array_values(array_filter($rows, fn($r) => $r['type'] === $requestType));
     }
 
     $totalAmount = array_reduce($rows, function ($sum, $r) {
@@ -46,6 +52,7 @@ route('GET', '/reports/purchase-requests', function () {
             'vendorId' => $vendorId ? (int) $vendorId : null,
             'month' => $month ?: null,
             'type' => $type,
+            'requestType' => $requestType ?: null,
         ],
     ]);
 });

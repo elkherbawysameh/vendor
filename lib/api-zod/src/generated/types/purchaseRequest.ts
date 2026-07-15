@@ -6,12 +6,14 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { PurchaseRequestStatus } from './purchaseRequestStatus';
+import type { PurchaseRequestType } from './purchaseRequestType';
 import type { Vendor } from './vendor';
 import type { VendorCategory } from './vendorCategory';
 
 export interface PurchaseRequest {
   id: number;
   requestNumber: string;
+  type?: PurchaseRequestType;
   requesterEmail: string;
   department: string;
   itemDescription: string;
@@ -24,6 +26,16 @@ export interface PurchaseRequest {
   category?: VendorCategory;
   /** @nullable */
   quotationUrl?: string | null;
+  /**
+     * Refund-only -- Drive link to the employee's invoice/receipt.
+     * @nullable
+     */
+  invoiceUrl?: string | null;
+  /**
+     * Total amount tied to quotationUrl (purchase) or invoiceUrl (refund).
+     * @nullable
+     */
+  quotationAmount?: number | null;
   reason: string;
   managerEmail: string;
   status: PurchaseRequestStatus;

@@ -5,6 +5,7 @@
  * Qoyod Vendor & Purchase Management System API
  * OpenAPI spec version: 0.1.0
  */
+import type { GetReportRequestType } from './getReportRequestType';
 import type { GetReportType } from './getReportType';
 
 export type GetReportParams = {
@@ -14,4 +15,5 @@ vendorId?: number;
  */
 month?: string;
 type?: GetReportType;
+requestType?: GetReportRequestType;
 };

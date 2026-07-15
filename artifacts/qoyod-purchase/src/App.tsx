@@ -10,6 +10,8 @@ import Dashboard from '@/pages/dashboard';
 import RequestsPage from '@/pages/requests';
 import NewRequestPage from '@/pages/requests-new';
 import RequestDetail from '@/pages/requests-[id]';
+import RequestPrintPage from '@/pages/requests-print-[id]';
+import RefundNewPage from '@/pages/refund-new';
 import VendorsPage from '@/pages/vendors';
 import NewVendorPage from '@/pages/vendors-new';
 import VendorDetail from '@/pages/vendors-[id]';
@@ -41,6 +43,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={LoginPage} />
+      <Route path="/requests/:id/print" component={RequestPrintPage} />
       <Route path="/" nest>
         <AppLayout>
           <Switch>
@@ -48,6 +51,7 @@ function Router() {
             <Route path="/requests" component={RequestsPage} />
             <Route path="/requests/new" component={NewRequestPage} />
             <Route path="/requests/:id" component={RequestDetail} />
+            <Route path="/refunds/new" component={RefundNewPage} />
             <Route path="/vendors" component={VendorsPage} />
             <Route path="/vendors/new" component={NewVendorPage} />
             <Route path="/vendors/:id" component={VendorDetail} />

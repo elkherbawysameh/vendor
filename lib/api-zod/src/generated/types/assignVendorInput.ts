@@ -11,4 +11,6 @@ export interface AssignVendorInput {
   vendorId?: number;
   /** Google Drive link to the quotation. */
   quotationUrl: string;
+  /** Total amount quoted. */
+  quotationAmount: number;
 }

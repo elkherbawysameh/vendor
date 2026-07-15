@@ -40,6 +40,7 @@ import type {
   ReportData,
   RequestActivity,
   StatusCount,
+  SubmitInvoiceInput,
   Vendor,
   VendorCategory,
   VendorCategoryInput,
@@ -2074,6 +2075,77 @@ export const useAssignPurchaseRequestVendor = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getAssignPurchaseRequestVendorMutationOptions(options));
+    }
+
+export const getSubmitPurchaseRequestInvoiceUrl = (id: number,) => {
+
+
+
+
+  return `/api/purchase-requests/${id}/submit-invoice`
+}
+
+/**
+ * @summary Requester attaches an invoice + total amount for a refund request (after manager approval)
+ */
+export const submitPurchaseRequestInvoice = async (id: number,
+    submitInvoiceInput: SubmitInvoiceInput, options?: RequestInit): Promise<PurchaseRequest> => {
+
+  return customFetch<PurchaseRequest>(getSubmitPurchaseRequestInvoiceUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(submitInvoiceInput)
+  }
+);}
+
+
+
+
+export const getSubmitPurchaseRequestInvoiceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitPurchaseRequestInvoice>>, TError,{id: number;data: BodyType<SubmitInvoiceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitPurchaseRequestInvoice>>, TError,{id: number;data: BodyType<SubmitInvoiceInput>}, TContext> => {
+
+const mutationKey = ['submitPurchaseRequestInvoice'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitPurchaseRequestInvoice>>, {id: number;data: BodyType<SubmitInvoiceInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  submitPurchaseRequestInvoice(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitPurchaseRequestInvoiceMutationResult = NonNullable<Awaited<ReturnType<typeof submitPurchaseRequestInvoice>>>
+    export type SubmitPurchaseRequestInvoiceMutationBody = BodyType<SubmitInvoiceInput>
+    export type SubmitPurchaseRequestInvoiceMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Requester attaches an invoice + total amount for a refund request (after manager approval)
+ */
+export const useSubmitPurchaseRequestInvoice = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitPurchaseRequestInvoice>>, TError,{id: number;data: BodyType<SubmitInvoiceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof submitPurchaseRequestInvoice>>,
+        TError,
+        {id: number;data: BodyType<SubmitInvoiceInput>},
+        TContext
+      > => {
+      return useMutation(getSubmitPurchaseRequestInvoiceMutationOptions(options));
     }
 
 export const getRejectPurchaseRequestUrl = (id: number,) => {

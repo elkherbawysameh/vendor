@@ -62,6 +62,10 @@ CREATE TABLE IF NOT EXISTS vendor_transactions (
 CREATE TABLE IF NOT EXISTS purchase_requests (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   request_number VARCHAR(255) NOT NULL UNIQUE,
+  -- 'purchase' (default) or 'refund'. Refund requests skip the admin
+  -- vendor-assignment step and instead route back to the employee to
+  -- attach an invoice (see invoice_url / pending_employee_invoice status).
+  type VARCHAR(16) NOT NULL DEFAULT 'purchase',
   requester_email TEXT NOT NULL,
   department TEXT NOT NULL,
   item_description TEXT NOT NULL,
@@ -73,6 +77,10 @@ CREATE TABLE IF NOT EXISTS purchase_requests (
   -- Quotation an admin attaches (Google Drive link) before the request
   -- reaches accounts, regardless of whether the vendor was already known.
   quotation_url TEXT NULL,
+  -- Refund-only: Drive link to the employee's invoice/receipt.
+  invoice_url TEXT NULL,
+  -- Total amount tied to quotation_url (purchase) or invoice_url (refund).
+  quotation_amount DOUBLE NULL,
   reason TEXT NOT NULL,
   manager_email TEXT NOT NULL,
   status VARCHAR(64) NOT NULL DEFAULT 'pending_manager',
@@ -88,7 +96,8 @@ CREATE TABLE IF NOT EXISTS purchase_requests (
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_pr_vendor (vendor_id),
   INDEX idx_pr_category (category_id),
-  INDEX idx_pr_status (status)
+  INDEX idx_pr_status (status),
+  INDEX idx_pr_type (type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS request_activities (

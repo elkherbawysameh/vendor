@@ -5,8 +5,11 @@
  * Qoyod Vendor & Purchase Management System API
  * OpenAPI spec version: 0.1.0
  */
+import type { PurchaseRequestInputType } from './purchaseRequestInputType';
 
 export interface PurchaseRequestInput {
+  /** Defaults to "purchase". Refund requests omit categoryId. */
+  type?: PurchaseRequestInputType;
   requesterEmail: string;
   /** @minLength 1 */
   department: string;

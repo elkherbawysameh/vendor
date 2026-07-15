@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { getStatusInfo } from "@/lib/constants";
 import { Link } from "wouter";
-import { Eye, Plus, Search, Filter, Trash2 } from "lucide-react";
+import { Eye, Plus, Search, Filter, Trash2, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -29,6 +29,7 @@ export default function RequestsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [clearAllOpen, setClearAllOpen] = useState(false);
@@ -88,7 +89,10 @@ export default function RequestsPage() {
       
     // Filter by status (if not done by server)
     const statusMatch = statusFilter === "all" || req.status === statusFilter;
-    
+
+    // Filter by request type (purchase vs refund)
+    const typeMatch = typeFilter === "all" || req.type === typeFilter;
+
     // Filter by manager (if standard employee, already handled by server, if manager, they only see theirs unless admin/accounts)
     const managerMatch = user?.role === "employee" || 
       user?.role === "admin" || 
@@ -97,7 +101,7 @@ export default function RequestsPage() {
       req.managerEmail === user?.email || 
       req.requesterEmail === user?.email;
       
-    return searchMatch && statusMatch && managerMatch;
+    return searchMatch && statusMatch && typeMatch && managerMatch;
   });
 
   return (
@@ -107,7 +111,11 @@ export default function RequestsPage() {
           <h1 className="text-2xl font-bold text-primary">Purchase Requests</h1>
           <p className="text-muted-foreground text-sm">Manage and track procurement requests / إدارة وتتبع طلبات الشراء</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 print:hidden">
+        <Button variant="outline" onClick={() => window.print()}>
+          <Printer className="w-4 h-4 mr-2" />
+          Print Report
+        </Button>
         {isAdmin && (
           <Button variant="outline" className="text-destructive hover:text-destructive" onClick={() => setClearAllOpen(true)}>
             <Trash2 className="w-4 h-4 mr-2" />
@@ -121,17 +129,34 @@ export default function RequestsPage() {
         </div>
       </div>
 
+      <div className="hidden print:block text-sm text-muted-foreground">
+        Report: {typeFilter === "all" ? "All Requests" : typeFilter === "refund" ? "Refund Requests" : "Purchase Requests"}
+        {statusFilter !== "all" && ` — Status: ${statusFilter}`} — Generated {formatDate(new Date().toISOString())}
+      </div>
+
       <Card>
-        <CardHeader className="pb-3 border-b">
+        <CardHeader className="pb-3 border-b print:hidden">
           <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
             <div className="relative w-full sm:w-72">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Search PR, item, vendor..." 
+              <Input
+                placeholder="Search PR, item, vendor..."
                 className="pl-9 bg-muted/50 border-none"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
+            </div>
+            <div className="w-full sm:w-44 flex items-center gap-2">
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="bg-muted/50 border-none">
+                  <SelectValue placeholder="All Types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types / كل الأنواع</SelectItem>
+                  <SelectItem value="purchase">Purchase Requests</SelectItem>
+                  <SelectItem value="refund">Refund Requests</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="w-full sm:w-48 flex items-center gap-2">
               <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -143,6 +168,7 @@ export default function RequestsPage() {
                   <SelectItem value="all">All Statuses / جميع الحالات</SelectItem>
                   <SelectItem value="pending_manager">Pending Manager</SelectItem>
                   <SelectItem value="pending_vendor_assignment">Awaiting Vendor Assignment</SelectItem>
+                  <SelectItem value="pending_employee_invoice">Awaiting Invoice</SelectItem>
                   <SelectItem value="approved_by_manager">Pending Accounts</SelectItem>
                   <SelectItem value="approved_by_accounts">Approved / Pending Exec</SelectItem>
                   <SelectItem value="executed">Executed</SelectItem>
@@ -162,7 +188,7 @@ export default function RequestsPage() {
                 <TableHead className="font-semibold text-right">Amount</TableHead>
                 <TableHead className="font-semibold">Status</TableHead>
                 <TableHead className="font-semibold">Date</TableHead>
-                <TableHead className="text-right pr-6">Action</TableHead>
+                <TableHead className="text-right pr-6 print:hidden">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -194,11 +220,16 @@ export default function RequestsPage() {
                     <TableRow key={req.id} className="group hover:bg-muted/10 transition-colors">
                       <TableCell className="pl-6 font-medium text-primary">{req.requestNumber}</TableCell>
                       <TableCell>
-                        <div className="font-medium">{req.itemDescription}</div>
+                        <div className="font-medium flex items-center gap-2">
+                          {req.itemDescription}
+                          {req.type === "refund" && (
+                            <Badge variant="outline" className="text-xs font-normal">Refund</Badge>
+                          )}
+                        </div>
                         <div className="text-xs text-muted-foreground">
-                          {req.vendor?.companyName || (req.category?.name ? `${req.category.name} (category)` : 'Other')}
-                          <span className="mx-1">•</span>
-                          Qty: {req.quantity}
+                          {req.type === "refund"
+                            ? `Qty: ${req.quantity}`
+                            : <>{req.vendor?.companyName || (req.category?.name ? `${req.category.name} (category)` : 'Other')}<span className="mx-1">•</span>Qty: {req.quantity}</>}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -220,7 +251,7 @@ export default function RequestsPage() {
                       <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                         {formatDate(req.createdAt)}
                       </TableCell>
-                      <TableCell className="text-right pr-6">
+                      <TableCell className="text-right pr-6 print:hidden">
                         <div className="flex items-center justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                           <Link href={`/requests/${req.id}`}>
                             <Button variant="ghost" size="icon">

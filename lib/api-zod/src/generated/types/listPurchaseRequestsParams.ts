@@ -5,10 +5,12 @@
  * Qoyod Vendor & Purchase Management System API
  * OpenAPI spec version: 0.1.0
  */
+import type { ListPurchaseRequestsRequestType } from './listPurchaseRequestsRequestType';
 
 export type ListPurchaseRequestsParams = {
 status?: string;
 vendorId?: number;
 requesterEmail?: string;
 managerEmail?: string;
+requestType?: ListPurchaseRequestsRequestType;
 };

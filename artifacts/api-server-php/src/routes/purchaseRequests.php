@@ -1,8 +1,9 @@
 <?php
 
-const PURCHASE_REQUEST_COLUMNS = "id, request_number AS requestNumber, requester_email AS requesterEmail, department,
+const PURCHASE_REQUEST_COLUMNS = "id, request_number AS requestNumber, type, requester_email AS requesterEmail, department,
     item_description AS itemDescription, quantity, vendor_id AS vendorId, category_id AS categoryId,
-    quotation_url AS quotationUrl, reason, manager_email AS managerEmail, status,
+    quotation_url AS quotationUrl, invoice_url AS invoiceUrl, quotation_amount AS quotationAmount,
+    reason, manager_email AS managerEmail, status,
     estimated_amount AS estimatedAmount, final_amount AS finalAmount, manager_note AS managerNote,
     accounts_note AS accountsNote, clarification_question AS clarificationQuestion,
     clarification_answer AS clarificationAnswer, executed_at AS executedAt, executed_by AS executedBy,
@@ -70,11 +71,13 @@ route('GET', '/purchase-requests', function () {
     $vendorId = $_GET['vendorId'] ?? null;
     $requesterEmail = $_GET['requesterEmail'] ?? null;
     $managerEmail = $_GET['managerEmail'] ?? null;
+    $requestType = $_GET['requestType'] ?? null;
 
     if ($status) $rows = array_values(array_filter($rows, fn($r) => $r['status'] === $status));
     if ($vendorId) $rows = array_values(array_filter($rows, fn($r) => (int) $r['vendorId'] === (int) $vendorId));
     if ($requesterEmail) $rows = array_values(array_filter($rows, fn($r) => $r['requesterEmail'] === $requesterEmail));
     if ($managerEmail) $rows = array_values(array_filter($rows, fn($r) => $r['managerEmail'] === $managerEmail));
+    if ($requestType) $rows = array_values(array_filter($rows, fn($r) => $r['type'] === $requestType));
 
     json_response(array_map('enrich_request', $rows));
 });
@@ -83,12 +86,14 @@ route('GET', '/purchase-requests', function () {
 route('POST', '/purchase-requests', function () {
     require_auth();
     $body = read_json_body();
+    $type = ($body['type'] ?? 'purchase') === 'refund' ? 'refund' : 'purchase';
     $requesterEmail = require_email($body, 'requesterEmail');
     $department = require_string($body, 'department', 1);
     $itemDescription = require_string($body, 'itemDescription', 1);
     $quantity = require_int($body, 'quantity');
     // Requesters pick a category, not a vendor -- null/absent means "Other"
     // (no category fit; an admin picks the vendor after manager approval).
+    // Refund requests never carry a category at all.
     $categoryId = require_int($body, 'categoryId');
     $reason = require_string($body, 'reason', 1);
     $managerEmail = require_email($body, 'managerEmail');
@@ -98,14 +103,15 @@ route('POST', '/purchase-requests', function () {
 
     $requestNumber = generate_request_number();
     $id = db_insert(
-        'INSERT INTO purchase_requests (request_number, requester_email, department, item_description, quantity,
+        'INSERT INTO purchase_requests (request_number, type, requester_email, department, item_description, quantity,
             category_id, reason, manager_email, status, estimated_amount)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [$requestNumber, $requesterEmail, $department, $itemDescription, $quantity, $categoryId, $reason, $managerEmail,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [$requestNumber, $type, $requesterEmail, $department, $itemDescription, $quantity, $categoryId, $reason, $managerEmail,
             'pending_manager', optional_number($body, 'estimatedAmount')]
     );
     $created = get_purchase_request($id);
-    log_activity($id, $created['requesterEmail'], 'submitted', 'طلب شراء جديد: ' . $created['itemDescription']);
+    log_activity($id, $created['requesterEmail'], 'submitted',
+        ($type === 'refund' ? 'طلب استرداد جديد: ' : 'طلب شراء جديد: ') . $created['itemDescription']);
 
     json_response(enrich_request($created), 201);
 });
@@ -128,9 +134,11 @@ route('POST', '/purchase-requests/{id}/approve', function ($params) {
     $actorEmail = current_user_email() ?? $row['managerEmail'];
 
     if (in_array($row['status'], ['pending_manager', 'pending_clarification_employee_manager'])) {
-        // Always goes through the admin next (even reorders with a known
-        // vendor) so a fresh quotation can be attached before accounts sees it.
-        $newStatus = 'pending_vendor_assignment';
+        // Purchase requests always go through the admin next (even reorders
+        // with a known vendor) so a fresh quotation can be attached before
+        // accounts sees it. Refund requests instead go back to the employee
+        // to attach their invoice.
+        $newStatus = $row['type'] === 'refund' ? 'pending_employee_invoice' : 'pending_vendor_assignment';
         $actorNote = $body['note'] ?? 'تمت الموافقة من المدير';
     } elseif (in_array($row['status'], ['approved_by_manager', 'pending_clarification_employee_accounts'])) {
         $newStatus = 'approved_by_accounts';
@@ -143,7 +151,7 @@ route('POST', '/purchase-requests/{id}/approve', function ($params) {
         'UPDATE purchase_requests SET status = ?, manager_note = ?, accounts_note = ?, updated_at = NOW() WHERE id = ?',
         [
             $newStatus,
-            in_array($newStatus, ['approved_by_manager', 'pending_vendor_assignment'], true) ? ($body['note'] ?? null) : $row['managerNote'],
+            in_array($newStatus, ['approved_by_manager', 'pending_vendor_assignment', 'pending_employee_invoice'], true) ? ($body['note'] ?? null) : $row['managerNote'],
             $newStatus === 'approved_by_accounts' ? ($body['note'] ?? null) : $row['accountsNote'],
             $id,
         ]
@@ -166,6 +174,8 @@ route('POST', '/purchase-requests/{id}/assign-vendor', function ($params) {
     $body = read_json_body();
     $quotationUrl = require_string($body, 'quotationUrl', 1);
     if ($quotationUrl === null) error_response('quotationUrl is required', 400);
+    $quotationAmount = optional_number($body, 'quotationAmount');
+    if ($quotationAmount === null) error_response('quotationAmount is required', 400);
 
     // Vendor is only required here if one isn't already set (fresh request);
     // reorders already carry theirs over and just need a new quotation.
@@ -175,10 +185,36 @@ route('POST', '/purchase-requests/{id}/assign-vendor', function ($params) {
     if (!$vendor) error_response('Vendor not found', 404);
 
     db_execute(
-        'UPDATE purchase_requests SET vendor_id = ?, quotation_url = ?, status = ?, updated_at = NOW() WHERE id = ?',
-        [$vendorId, $quotationUrl, 'approved_by_manager', $id]
+        'UPDATE purchase_requests SET vendor_id = ?, quotation_url = ?, quotation_amount = ?, status = ?, updated_at = NOW() WHERE id = ?',
+        [$vendorId, $quotationUrl, $quotationAmount, 'approved_by_manager', $id]
     );
     log_activity($id, $actorEmail, 'vendor_assigned', 'تم تحديد المورد وإرفاق عرض السعر: ' . $vendor['companyName']);
+
+    json_response(enrich_request(get_purchase_request($id)));
+});
+
+// POST /purchase-requests/{id}/submit-invoice
+route('POST', '/purchase-requests/{id}/submit-invoice', function ($params) {
+    $actorEmail = require_auth();
+    $id = (int) $params['id'];
+    $row = get_purchase_request($id);
+    if (!$row) error_response('Request not found', 404);
+    if ($row['type'] !== 'refund' || $row['status'] !== 'pending_employee_invoice') {
+        error_response('Request is not waiting for an invoice', 400);
+    }
+    if ($actorEmail !== $row['requesterEmail']) error_response('Access denied', 403);
+
+    $body = read_json_body();
+    $invoiceUrl = require_string($body, 'invoiceUrl', 1);
+    if ($invoiceUrl === null) error_response('invoiceUrl is required', 400);
+    $totalAmount = optional_number($body, 'totalAmount');
+    if ($totalAmount === null) error_response('totalAmount is required', 400);
+
+    db_execute(
+        'UPDATE purchase_requests SET invoice_url = ?, quotation_amount = ?, status = ?, updated_at = NOW() WHERE id = ?',
+        [$invoiceUrl, $totalAmount, 'approved_by_manager', $id]
+    );
+    log_activity($id, $actorEmail, 'invoice_submitted', 'تم إرفاق الفاتورة بمبلغ إجمالي ' . $totalAmount);
 
     json_response(enrich_request(get_purchase_request($id)));
 });
@@ -315,10 +351,10 @@ route('POST', '/purchase-requests/{id}/reorder', function ($params) {
 
     $requestNumber = generate_request_number();
     $newId = db_insert(
-        'INSERT INTO purchase_requests (request_number, requester_email, department, item_description, quantity,
+        'INSERT INTO purchase_requests (request_number, type, requester_email, department, item_description, quantity,
             vendor_id, category_id, reason, manager_email, status, estimated_amount)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [$requestNumber, $requesterEmail, $row['department'], $row['itemDescription'], $quantity, (int) $row['vendorId'],
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [$requestNumber, $row['type'], $requesterEmail, $row['department'], $row['itemDescription'], $quantity, (int) $row['vendorId'],
             $row['categoryId'] !== null ? (int) $row['categoryId'] : null, $reason, $managerEmail, 'pending_manager',
             optional_number($body, 'estimatedAmount')]
     );

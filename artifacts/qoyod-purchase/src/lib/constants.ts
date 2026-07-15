@@ -10,6 +10,8 @@ export function getStatusInfo(status: PurchaseRequestStatus) {
       return { label: 'Needs Clarification', variant: 'info' as const, labelAr: 'يحتاج توضيح' };
     case 'pending_vendor_assignment':
       return { label: 'Awaiting Vendor Assignment', variant: 'warning' as const, labelAr: 'في انتظار تحديد المورد' };
+    case 'pending_employee_invoice':
+      return { label: 'Awaiting Invoice', variant: 'warning' as const, labelAr: 'بانتظار إرفاق الفاتورة' };
     case 'approved_by_manager':
       return { label: 'Manager Approved', variant: 'success' as const, labelAr: 'موافقة المدير' };
     case 'approved_by_accounts':

@@ -483,12 +483,14 @@ export const ListPurchaseRequestsQueryParams = zod.object({
   "status": zod.coerce.string().optional(),
   "vendorId": zod.coerce.number().optional(),
   "requesterEmail": zod.coerce.string().optional(),
-  "managerEmail": zod.coerce.string().optional()
+  "managerEmail": zod.coerce.string().optional(),
+  "requestType": zod.enum(['purchase', 'refund']).optional()
 })
 
 export const ListPurchaseRequestsResponseItem = zod.object({
   "id": zod.number(),
   "requestNumber": zod.string(),
+  "type": zod.enum(['purchase', 'refund']).optional(),
   "requesterEmail": zod.string(),
   "department": zod.string(),
   "itemDescription": zod.string(),
@@ -536,9 +538,11 @@ export const ListPurchaseRequestsResponseItem = zod.object({
   "createdAt": zod.coerce.date()
 }).optional(),
   "quotationUrl": zod.string().nullish(),
+  "invoiceUrl": zod.string().nullish().describe('Refund-only -- Drive link to the employee\'s invoice\/receipt.'),
+  "quotationAmount": zod.number().nullish().describe('Total amount tied to quotationUrl (purchase) or invoiceUrl (refund).'),
   "reason": zod.string(),
   "managerEmail": zod.string(),
-  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
+  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_employee_invoice', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
   "estimatedAmount": zod.number().nullish(),
   "finalAmount": zod.number().nullish(),
   "managerNote": zod.string().nullish(),
@@ -556,13 +560,14 @@ export const ListPurchaseRequestsResponse = zod.array(ListPurchaseRequestsRespon
 /**
  * @summary Submit a new purchase request
  */
-
+export const createPurchaseRequestBodyTypeDefault = `purchase`;
 
 
 
 
 
 export const CreatePurchaseRequestBody = zod.object({
+  "type": zod.enum(['purchase', 'refund']).default(createPurchaseRequestBodyTypeDefault).describe('Defaults to \"purchase\". Refund requests omit categoryId.'),
   "requesterEmail": zod.string().email(),
   "department": zod.string().min(1),
   "itemDescription": zod.string().min(1),
@@ -576,6 +581,7 @@ export const CreatePurchaseRequestBody = zod.object({
 export const CreatePurchaseRequestResponse = zod.object({
   "id": zod.number(),
   "requestNumber": zod.string(),
+  "type": zod.enum(['purchase', 'refund']).optional(),
   "requesterEmail": zod.string(),
   "department": zod.string(),
   "itemDescription": zod.string(),
@@ -623,9 +629,11 @@ export const CreatePurchaseRequestResponse = zod.object({
   "createdAt": zod.coerce.date()
 }).optional(),
   "quotationUrl": zod.string().nullish(),
+  "invoiceUrl": zod.string().nullish().describe('Refund-only -- Drive link to the employee\'s invoice\/receipt.'),
+  "quotationAmount": zod.number().nullish().describe('Total amount tied to quotationUrl (purchase) or invoiceUrl (refund).'),
   "reason": zod.string(),
   "managerEmail": zod.string(),
-  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
+  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_employee_invoice', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
   "estimatedAmount": zod.number().nullish(),
   "finalAmount": zod.number().nullish(),
   "managerNote": zod.string().nullish(),
@@ -649,6 +657,7 @@ export const GetPurchaseRequestParams = zod.object({
 export const GetPurchaseRequestResponse = zod.object({
   "id": zod.number(),
   "requestNumber": zod.string(),
+  "type": zod.enum(['purchase', 'refund']).optional(),
   "requesterEmail": zod.string(),
   "department": zod.string(),
   "itemDescription": zod.string(),
@@ -696,9 +705,11 @@ export const GetPurchaseRequestResponse = zod.object({
   "createdAt": zod.coerce.date()
 }).optional(),
   "quotationUrl": zod.string().nullish(),
+  "invoiceUrl": zod.string().nullish().describe('Refund-only -- Drive link to the employee\'s invoice\/receipt.'),
+  "quotationAmount": zod.number().nullish().describe('Total amount tied to quotationUrl (purchase) or invoiceUrl (refund).'),
   "reason": zod.string(),
   "managerEmail": zod.string(),
-  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
+  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_employee_invoice', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
   "estimatedAmount": zod.number().nullish(),
   "finalAmount": zod.number().nullish(),
   "managerNote": zod.string().nullish(),
@@ -726,6 +737,7 @@ export const ApprovePurchaseRequestBody = zod.object({
 export const ApprovePurchaseRequestResponse = zod.object({
   "id": zod.number(),
   "requestNumber": zod.string(),
+  "type": zod.enum(['purchase', 'refund']).optional(),
   "requesterEmail": zod.string(),
   "department": zod.string(),
   "itemDescription": zod.string(),
@@ -773,9 +785,11 @@ export const ApprovePurchaseRequestResponse = zod.object({
   "createdAt": zod.coerce.date()
 }).optional(),
   "quotationUrl": zod.string().nullish(),
+  "invoiceUrl": zod.string().nullish().describe('Refund-only -- Drive link to the employee\'s invoice\/receipt.'),
+  "quotationAmount": zod.number().nullish().describe('Total amount tied to quotationUrl (purchase) or invoiceUrl (refund).'),
   "reason": zod.string(),
   "managerEmail": zod.string(),
-  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
+  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_employee_invoice', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
   "estimatedAmount": zod.number().nullish(),
   "finalAmount": zod.number().nullish(),
   "managerNote": zod.string().nullish(),
@@ -798,12 +812,14 @@ export const AssignPurchaseRequestVendorParams = zod.object({
 
 export const AssignPurchaseRequestVendorBody = zod.object({
   "vendorId": zod.number().optional().describe('Required only if the request doesn\'t already have a vendor (e.g. not a reorder).'),
-  "quotationUrl": zod.string().describe('Google Drive link to the quotation.')
+  "quotationUrl": zod.string().describe('Google Drive link to the quotation.'),
+  "quotationAmount": zod.number().describe('Total amount quoted.')
 })
 
 export const AssignPurchaseRequestVendorResponse = zod.object({
   "id": zod.number(),
   "requestNumber": zod.string(),
+  "type": zod.enum(['purchase', 'refund']).optional(),
   "requesterEmail": zod.string(),
   "department": zod.string(),
   "itemDescription": zod.string(),
@@ -851,9 +867,92 @@ export const AssignPurchaseRequestVendorResponse = zod.object({
   "createdAt": zod.coerce.date()
 }).optional(),
   "quotationUrl": zod.string().nullish(),
+  "invoiceUrl": zod.string().nullish().describe('Refund-only -- Drive link to the employee\'s invoice\/receipt.'),
+  "quotationAmount": zod.number().nullish().describe('Total amount tied to quotationUrl (purchase) or invoiceUrl (refund).'),
   "reason": zod.string(),
   "managerEmail": zod.string(),
-  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
+  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_employee_invoice', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
+  "estimatedAmount": zod.number().nullish(),
+  "finalAmount": zod.number().nullish(),
+  "managerNote": zod.string().nullish(),
+  "accountsNote": zod.string().nullish(),
+  "clarificationQuestion": zod.string().nullish(),
+  "clarificationAnswer": zod.string().nullish(),
+  "executedAt": zod.coerce.date().nullish(),
+  "executedBy": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional()
+})
+
+
+/**
+ * @summary Requester attaches an invoice + total amount for a refund request (after manager approval)
+ */
+export const SubmitPurchaseRequestInvoiceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const SubmitPurchaseRequestInvoiceBody = zod.object({
+  "invoiceUrl": zod.string().describe('Google Drive link to the employee\'s invoice\/receipt.'),
+  "totalAmount": zod.number().describe('Total amount on the invoice.')
+})
+
+export const SubmitPurchaseRequestInvoiceResponse = zod.object({
+  "id": zod.number(),
+  "requestNumber": zod.string(),
+  "type": zod.enum(['purchase', 'refund']).optional(),
+  "requesterEmail": zod.string(),
+  "department": zod.string(),
+  "itemDescription": zod.string(),
+  "quantity": zod.number(),
+  "vendorId": zod.number().nullish(),
+  "vendor": zod.object({
+  "id": zod.number(),
+  "companyName": zod.string(),
+  "contactPerson": zod.string().nullish(),
+  "contactEmail": zod.string().nullish(),
+  "contactPhone": zod.string().nullish(),
+  "bankName": zod.string().nullish(),
+  "bankAccountName": zod.string().nullish(),
+  "bankAccountNumber": zod.string().nullish(),
+  "iban": zod.string().nullish(),
+  "swiftCode": zod.string().nullish(),
+  "bankBranch": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "categoryIds": zod.array(zod.number()).optional(),
+  "categories": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})).optional(),
+  "documents": zod.array(zod.object({
+  "id": zod.number(),
+  "vendorId": zod.number(),
+  "documentType": zod.string(),
+  "documentNumber": zod.string().nullish(),
+  "expiryDate": zod.coerce.date().nullish(),
+  "fileUrl": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})).optional(),
+  "totalSpent": zod.number().nullish(),
+  "transactionCount": zod.number().nullish(),
+  "createdAt": zod.coerce.date()
+}).optional(),
+  "categoryId": zod.number().nullish(),
+  "category": zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+}).optional(),
+  "quotationUrl": zod.string().nullish(),
+  "invoiceUrl": zod.string().nullish().describe('Refund-only -- Drive link to the employee\'s invoice\/receipt.'),
+  "quotationAmount": zod.number().nullish().describe('Total amount tied to quotationUrl (purchase) or invoiceUrl (refund).'),
+  "reason": zod.string(),
+  "managerEmail": zod.string(),
+  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_employee_invoice', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
   "estimatedAmount": zod.number().nullish(),
   "finalAmount": zod.number().nullish(),
   "managerNote": zod.string().nullish(),
@@ -881,6 +980,7 @@ export const RejectPurchaseRequestBody = zod.object({
 export const RejectPurchaseRequestResponse = zod.object({
   "id": zod.number(),
   "requestNumber": zod.string(),
+  "type": zod.enum(['purchase', 'refund']).optional(),
   "requesterEmail": zod.string(),
   "department": zod.string(),
   "itemDescription": zod.string(),
@@ -928,9 +1028,11 @@ export const RejectPurchaseRequestResponse = zod.object({
   "createdAt": zod.coerce.date()
 }).optional(),
   "quotationUrl": zod.string().nullish(),
+  "invoiceUrl": zod.string().nullish().describe('Refund-only -- Drive link to the employee\'s invoice\/receipt.'),
+  "quotationAmount": zod.number().nullish().describe('Total amount tied to quotationUrl (purchase) or invoiceUrl (refund).'),
   "reason": zod.string(),
   "managerEmail": zod.string(),
-  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
+  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_employee_invoice', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
   "estimatedAmount": zod.number().nullish(),
   "finalAmount": zod.number().nullish(),
   "managerNote": zod.string().nullish(),
@@ -958,6 +1060,7 @@ export const ClarifiyPurchaseRequestBody = zod.object({
 export const ClarifiyPurchaseRequestResponse = zod.object({
   "id": zod.number(),
   "requestNumber": zod.string(),
+  "type": zod.enum(['purchase', 'refund']).optional(),
   "requesterEmail": zod.string(),
   "department": zod.string(),
   "itemDescription": zod.string(),
@@ -1005,9 +1108,11 @@ export const ClarifiyPurchaseRequestResponse = zod.object({
   "createdAt": zod.coerce.date()
 }).optional(),
   "quotationUrl": zod.string().nullish(),
+  "invoiceUrl": zod.string().nullish().describe('Refund-only -- Drive link to the employee\'s invoice\/receipt.'),
+  "quotationAmount": zod.number().nullish().describe('Total amount tied to quotationUrl (purchase) or invoiceUrl (refund).'),
   "reason": zod.string(),
   "managerEmail": zod.string(),
-  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
+  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_employee_invoice', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
   "estimatedAmount": zod.number().nullish(),
   "finalAmount": zod.number().nullish(),
   "managerNote": zod.string().nullish(),
@@ -1041,6 +1146,7 @@ export const RespondToClarificationBody = zod.object({
 export const RespondToClarificationResponse = zod.object({
   "id": zod.number(),
   "requestNumber": zod.string(),
+  "type": zod.enum(['purchase', 'refund']).optional(),
   "requesterEmail": zod.string(),
   "department": zod.string(),
   "itemDescription": zod.string(),
@@ -1088,9 +1194,11 @@ export const RespondToClarificationResponse = zod.object({
   "createdAt": zod.coerce.date()
 }).optional(),
   "quotationUrl": zod.string().nullish(),
+  "invoiceUrl": zod.string().nullish().describe('Refund-only -- Drive link to the employee\'s invoice\/receipt.'),
+  "quotationAmount": zod.number().nullish().describe('Total amount tied to quotationUrl (purchase) or invoiceUrl (refund).'),
   "reason": zod.string(),
   "managerEmail": zod.string(),
-  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
+  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_employee_invoice', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
   "estimatedAmount": zod.number().nullish(),
   "finalAmount": zod.number().nullish(),
   "managerNote": zod.string().nullish(),
@@ -1120,6 +1228,7 @@ export const ExecutePurchaseRequestBody = zod.object({
 export const ExecutePurchaseRequestResponse = zod.object({
   "id": zod.number(),
   "requestNumber": zod.string(),
+  "type": zod.enum(['purchase', 'refund']).optional(),
   "requesterEmail": zod.string(),
   "department": zod.string(),
   "itemDescription": zod.string(),
@@ -1167,9 +1276,11 @@ export const ExecutePurchaseRequestResponse = zod.object({
   "createdAt": zod.coerce.date()
 }).optional(),
   "quotationUrl": zod.string().nullish(),
+  "invoiceUrl": zod.string().nullish().describe('Refund-only -- Drive link to the employee\'s invoice\/receipt.'),
+  "quotationAmount": zod.number().nullish().describe('Total amount tied to quotationUrl (purchase) or invoiceUrl (refund).'),
   "reason": zod.string(),
   "managerEmail": zod.string(),
-  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
+  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_employee_invoice', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
   "estimatedAmount": zod.number().nullish(),
   "finalAmount": zod.number().nullish(),
   "managerNote": zod.string().nullish(),
@@ -1204,6 +1315,7 @@ export const ReorderPurchaseRequestBody = zod.object({
 export const ReorderPurchaseRequestResponse = zod.object({
   "id": zod.number(),
   "requestNumber": zod.string(),
+  "type": zod.enum(['purchase', 'refund']).optional(),
   "requesterEmail": zod.string(),
   "department": zod.string(),
   "itemDescription": zod.string(),
@@ -1251,9 +1363,11 @@ export const ReorderPurchaseRequestResponse = zod.object({
   "createdAt": zod.coerce.date()
 }).optional(),
   "quotationUrl": zod.string().nullish(),
+  "invoiceUrl": zod.string().nullish().describe('Refund-only -- Drive link to the employee\'s invoice\/receipt.'),
+  "quotationAmount": zod.number().nullish().describe('Total amount tied to quotationUrl (purchase) or invoiceUrl (refund).'),
   "reason": zod.string(),
   "managerEmail": zod.string(),
-  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
+  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_employee_invoice', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
   "estimatedAmount": zod.number().nullish(),
   "finalAmount": zod.number().nullish(),
   "managerNote": zod.string().nullish(),
@@ -1318,6 +1432,7 @@ export const GetVendorSpendingResponse = zod.array(GetVendorSpendingResponseItem
 export const GetRecentActivityResponseItem = zod.object({
   "id": zod.number(),
   "requestNumber": zod.string(),
+  "type": zod.enum(['purchase', 'refund']).optional(),
   "requesterEmail": zod.string(),
   "department": zod.string(),
   "itemDescription": zod.string(),
@@ -1365,9 +1480,11 @@ export const GetRecentActivityResponseItem = zod.object({
   "createdAt": zod.coerce.date()
 }).optional(),
   "quotationUrl": zod.string().nullish(),
+  "invoiceUrl": zod.string().nullish().describe('Refund-only -- Drive link to the employee\'s invoice\/receipt.'),
+  "quotationAmount": zod.number().nullish().describe('Total amount tied to quotationUrl (purchase) or invoiceUrl (refund).'),
   "reason": zod.string(),
   "managerEmail": zod.string(),
-  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
+  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_employee_invoice', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
   "estimatedAmount": zod.number().nullish(),
   "finalAmount": zod.number().nullish(),
   "managerNote": zod.string().nullish(),
@@ -1400,13 +1517,15 @@ export const getReportQueryTypeDefault = `detailed`;
 export const GetReportQueryParams = zod.object({
   "vendorId": zod.coerce.number().optional(),
   "month": zod.coerce.string().optional(),
-  "type": zod.enum(['summary', 'detailed']).default(getReportQueryTypeDefault)
+  "type": zod.enum(['summary', 'detailed']).default(getReportQueryTypeDefault),
+  "requestType": zod.enum(['purchase', 'refund']).optional()
 })
 
 export const GetReportResponse = zod.object({
   "requests": zod.array(zod.object({
   "id": zod.number(),
   "requestNumber": zod.string(),
+  "type": zod.enum(['purchase', 'refund']).optional(),
   "requesterEmail": zod.string(),
   "department": zod.string(),
   "itemDescription": zod.string(),
@@ -1454,9 +1573,11 @@ export const GetReportResponse = zod.object({
   "createdAt": zod.coerce.date()
 }).optional(),
   "quotationUrl": zod.string().nullish(),
+  "invoiceUrl": zod.string().nullish().describe('Refund-only -- Drive link to the employee\'s invoice\/receipt.'),
+  "quotationAmount": zod.number().nullish().describe('Total amount tied to quotationUrl (purchase) or invoiceUrl (refund).'),
   "reason": zod.string(),
   "managerEmail": zod.string(),
-  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
+  "status": zod.enum(['pending_manager', 'pending_clarification_employee_manager', 'pending_vendor_assignment', 'pending_employee_invoice', 'pending_clarification_employee_accounts', 'approved_by_manager', 'rejected_by_manager', 'pending_accounts', 'approved_by_accounts', 'rejected_by_accounts', 'executed']),
   "estimatedAmount": zod.number().nullish(),
   "finalAmount": zod.number().nullish(),
   "managerNote": zod.string().nullish(),

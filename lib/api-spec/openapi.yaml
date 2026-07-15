@@ -465,6 +465,11 @@ paths:
           in: query
           schema:
             type: string
+        - name: requestType
+          in: query
+          schema:
+            type: string
+            enum: [purchase, refund]
       responses:
         "200":
           description: List of purchase requests
@@ -562,6 +567,31 @@ paths:
       responses:
         "200":
           description: Vendor assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseRequest"
+
+  /purchase-requests/{id}/submit-invoice:
+    post:
+      operationId: submitPurchaseRequestInvoice
+      tags: [purchase-requests]
+      summary: Requester attaches an invoice + total amount for a refund request (after manager approval)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitInvoiceInput"
+      responses:
+        "200":
+          description: Invoice submitted
           content:
             application/json:
               schema:
@@ -794,6 +824,11 @@ paths:
             type: string
             enum: [summary, detailed]
             default: detailed
+        - name: requestType
+          in: query
+          schema:
+            type: string
+            enum: [purchase, refund]
       responses:
         "200":
           description: Report data
@@ -1042,6 +1077,9 @@ components:
           type: integer
         requestNumber:
           type: string
+        type:
+          type: string
+          enum: [purchase, refund]
         requesterEmail:
           type: string
         department:
@@ -1060,6 +1098,12 @@ components:
           $ref: "#/components/schemas/VendorCategory"
         quotationUrl:
           type: ["string", "null"]
+        invoiceUrl:
+          description: Refund-only -- Drive link to the employee's invoice/receipt.
+          type: ["string", "null"]
+        quotationAmount:
+          description: Total amount tied to quotationUrl (purchase) or invoiceUrl (refund).
+          type: ["number", "null"]
         reason:
           type: string
         managerEmail:
@@ -1070,6 +1114,7 @@ components:
             - pending_manager
             - pending_clarification_employee_manager
             - pending_vendor_assignment
+            - pending_employee_invoice
             - pending_clarification_employee_accounts
             - approved_by_manager
             - rejected_by_manager
@@ -1105,6 +1150,11 @@ components:
       type: object
       required: [requesterEmail, department, itemDescription, quantity, reason, managerEmail]
       properties:
+        type:
+          description: Defaults to "purchase". Refund requests omit categoryId.
+          type: string
+          enum: [purchase, refund]
+          default: purchase
         requesterEmail:
           type: string
           format: email
@@ -1137,7 +1187,7 @@ components:
 
     AssignVendorInput:
       type: object
-      required: [quotationUrl]
+      required: [quotationUrl, quotationAmount]
       properties:
         vendorId:
           description: Required only if the request doesn't already have a vendor (e.g. not a reorder).
@@ -1145,6 +1195,20 @@ components:
         quotationUrl:
           description: Google Drive link to the quotation.
           type: string
+        quotationAmount:
+          description: Total amount quoted.
+          type: number
+
+    SubmitInvoiceInput:
+      type: object
+      required: [invoiceUrl, totalAmount]
+      properties:
+        invoiceUrl:
+          description: Google Drive link to the employee's invoice/receipt.
+          type: string
+        totalAmount:
+          description: Total amount on the invoice.
+          type: number
 
     ClarificationResponse:
       type: object

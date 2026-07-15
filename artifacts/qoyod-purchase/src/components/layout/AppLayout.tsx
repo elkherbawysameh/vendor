@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   ShoppingCart,
   PlusCircle,
+  Receipt,
   Users,
   UserPlus,
   Tags,
@@ -36,6 +37,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     { name: "Dashboard", nameAr: "لوحة القيادة", href: "/", icon: LayoutDashboard, exact: true },
     { name: "Requests", nameAr: "الطلبات", href: "/requests", icon: ShoppingCart },
     { name: "New Request", nameAr: "طلب جديد", href: "/requests/new", icon: PlusCircle },
+    { name: "Refund Request", nameAr: "طلب استرداد", href: "/refunds/new", icon: Receipt },
     ...(isManager ? [
       { name: "Vendors", nameAr: "الموردين", href: "/vendors", icon: Users },
     ] : []),

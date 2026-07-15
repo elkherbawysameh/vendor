@@ -145,6 +145,14 @@ export interface ExpiringDocument {
   daysUntilExpiry: number;
 }
 
+export type PurchaseRequestType = typeof PurchaseRequestType[keyof typeof PurchaseRequestType];
+
+
+export const PurchaseRequestType = {
+  purchase: 'purchase',
+  refund: 'refund',
+} as const;
+
 export type PurchaseRequestStatus = typeof PurchaseRequestStatus[keyof typeof PurchaseRequestStatus];
 
 
@@ -152,6 +160,7 @@ export const PurchaseRequestStatus = {
   pending_manager: 'pending_manager',
   pending_clarification_employee_manager: 'pending_clarification_employee_manager',
   pending_vendor_assignment: 'pending_vendor_assignment',
+  pending_employee_invoice: 'pending_employee_invoice',
   pending_clarification_employee_accounts: 'pending_clarification_employee_accounts',
   approved_by_manager: 'approved_by_manager',
   rejected_by_manager: 'rejected_by_manager',
@@ -164,6 +173,7 @@ export const PurchaseRequestStatus = {
 export interface PurchaseRequest {
   id: number;
   requestNumber: string;
+  type?: PurchaseRequestType;
   requesterEmail: string;
   department: string;
   itemDescription: string;
@@ -176,6 +186,16 @@ export interface PurchaseRequest {
   category?: VendorCategory;
   /** @nullable */
   quotationUrl?: string | null;
+  /**
+     * Refund-only -- Drive link to the employee's invoice/receipt.
+     * @nullable
+     */
+  invoiceUrl?: string | null;
+  /**
+     * Total amount tied to quotationUrl (purchase) or invoiceUrl (refund).
+     * @nullable
+     */
+  quotationAmount?: number | null;
   reason: string;
   managerEmail: string;
   status: PurchaseRequestStatus;
@@ -199,7 +219,20 @@ export interface PurchaseRequest {
   updatedAt?: string;
 }
 
+/**
+ * Defaults to "purchase". Refund requests omit categoryId.
+ */
+export type PurchaseRequestInputType = typeof PurchaseRequestInputType[keyof typeof PurchaseRequestInputType];
+
+
+export const PurchaseRequestInputType = {
+  purchase: 'purchase',
+  refund: 'refund',
+} as const;
+
 export interface PurchaseRequestInput {
+  /** Defaults to "purchase". Refund requests omit categoryId. */
+  type?: PurchaseRequestInputType;
   requesterEmail: string;
   /** @minLength 1 */
   department: string;
@@ -224,6 +257,15 @@ export interface AssignVendorInput {
   vendorId?: number;
   /** Google Drive link to the quotation. */
   quotationUrl: string;
+  /** Total amount quoted. */
+  quotationAmount: number;
+}
+
+export interface SubmitInvoiceInput {
+  /** Google Drive link to the employee's invoice/receipt. */
+  invoiceUrl: string;
+  /** Total amount on the invoice. */
+  totalAmount: number;
 }
 
 export interface ClarificationResponse {
@@ -307,7 +349,16 @@ status?: string;
 vendorId?: number;
 requesterEmail?: string;
 managerEmail?: string;
+requestType?: ListPurchaseRequestsRequestType;
 };
+
+export type ListPurchaseRequestsRequestType = typeof ListPurchaseRequestsRequestType[keyof typeof ListPurchaseRequestsRequestType];
+
+
+export const ListPurchaseRequestsRequestType = {
+  purchase: 'purchase',
+  refund: 'refund',
+} as const;
 
 export type GetReportParams = {
 vendorId?: number;
@@ -316,6 +367,7 @@ vendorId?: number;
  */
 month?: string;
 type?: GetReportType;
+requestType?: GetReportRequestType;
 };
 
 export type GetReportType = typeof GetReportType[keyof typeof GetReportType];
@@ -324,5 +376,13 @@ export type GetReportType = typeof GetReportType[keyof typeof GetReportType];
 export const GetReportType = {
   summary: 'summary',
   detailed: 'detailed',
+} as const;
+
+export type GetReportRequestType = typeof GetReportRequestType[keyof typeof GetReportRequestType];
+
+
+export const GetReportRequestType = {
+  purchase: 'purchase',
+  refund: 'refund',
 } as const;
 
