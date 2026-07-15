@@ -38,6 +38,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { SendNotificationButton } from "@/components/SendNotificationButton";
 
 export default function RequestDetail() {
   const params = useParams();
@@ -254,6 +255,10 @@ export default function RequestDetail() {
                 Print
               </Button>
             </Link>
+          )}
+
+          {!["executed", "rejected_by_manager", "rejected_by_accounts"].includes(request.status) && (
+            <SendNotificationButton requestId={id} />
           )}
         </div>
       </div>

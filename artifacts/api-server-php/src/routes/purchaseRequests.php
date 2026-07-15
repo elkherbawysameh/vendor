@@ -62,6 +62,245 @@ function enrich_request(array $req): array
     return array_merge($req, ['vendor' => $vendorEnriched, 'category' => $category]);
 }
 
+// Shared status-transition logic -- reused by both the authenticated routes
+// below and the unauthenticated magic-link routes in magicActions.php.
+
+function perform_approve(int $id, string $actorEmail, ?string $note): array
+{
+    $row = get_purchase_request($id);
+    if (!$row) error_response('Request not found', 404);
+
+    if (in_array($row['status'], ['pending_manager', 'pending_clarification_employee_manager'])) {
+        // Purchase requests always go through the admin next (even reorders
+        // with a known vendor) so a fresh quotation can be attached before
+        // accounts sees it. Refund requests instead go back to the employee
+        // to attach their invoice.
+        $newStatus = $row['type'] === 'refund' ? 'pending_employee_invoice' : 'pending_vendor_assignment';
+        $actorNote = $note ?? 'تمت الموافقة من المدير';
+    } elseif (in_array($row['status'], ['approved_by_manager', 'pending_clarification_employee_accounts'])) {
+        $newStatus = 'approved_by_accounts';
+        $actorNote = $note ?? 'تمت الموافقة من مدير الحسابات';
+    } else {
+        error_response('Cannot approve in current status', 400);
+    }
+
+    db_execute(
+        'UPDATE purchase_requests SET status = ?, manager_note = ?, accounts_note = ?, updated_at = NOW() WHERE id = ?',
+        [
+            $newStatus,
+            in_array($newStatus, ['approved_by_manager', 'pending_vendor_assignment', 'pending_employee_invoice'], true) ? $note : $row['managerNote'],
+            $newStatus === 'approved_by_accounts' ? $note : $row['accountsNote'],
+            $id,
+        ]
+    );
+    log_activity($id, $actorEmail, 'approved', $actorNote);
+
+    return enrich_request(get_purchase_request($id));
+}
+
+function perform_reject(int $id, string $actorEmail, ?string $note): array
+{
+    $row = get_purchase_request($id);
+    if (!$row) error_response('Request not found', 404);
+
+    if (in_array($row['status'], ['pending_manager', 'pending_clarification_employee_manager'])) {
+        $newStatus = 'rejected_by_manager';
+    } elseif (in_array($row['status'], ['approved_by_manager', 'pending_clarification_employee_accounts'])) {
+        $newStatus = 'rejected_by_accounts';
+    } else {
+        error_response('Cannot reject in current status', 400);
+    }
+
+    db_execute(
+        'UPDATE purchase_requests SET status = ?, manager_note = ?, accounts_note = ?, updated_at = NOW() WHERE id = ?',
+        [
+            $newStatus,
+            $newStatus === 'rejected_by_manager' ? $note : $row['managerNote'],
+            $newStatus === 'rejected_by_accounts' ? $note : $row['accountsNote'],
+            $id,
+        ]
+    );
+    log_activity($id, $actorEmail, 'rejected', $note ?? 'تم رفض الطلب');
+
+    return enrich_request(get_purchase_request($id));
+}
+
+function perform_clarify(int $id, string $actorEmail, ?string $note): array
+{
+    $row = get_purchase_request($id);
+    if (!$row) error_response('Request not found', 404);
+
+    if ($row['status'] === 'pending_manager') {
+        $newStatus = 'pending_clarification_employee_manager';
+    } elseif ($row['status'] === 'approved_by_manager') {
+        $newStatus = 'pending_clarification_employee_accounts';
+    } else {
+        error_response('Cannot request clarification in current status', 400);
+    }
+
+    db_execute(
+        'UPDATE purchase_requests SET status = ?, clarification_question = ?, clarification_answer = NULL, updated_at = NOW() WHERE id = ?',
+        [$newStatus, $note, $id]
+    );
+    log_activity($id, $actorEmail, 'clarification_requested', $note);
+
+    return enrich_request(get_purchase_request($id));
+}
+
+function perform_respond(
+    int $id,
+    string $actorEmail,
+    string $answer,
+    ?int $updatedQuantity = null,
+    ?string $updatedReason = null,
+    ?string $updatedManagerEmail = null
+): array {
+    $row = get_purchase_request($id);
+    if (!$row) error_response('Request not found', 404);
+
+    if ($row['status'] === 'pending_clarification_employee_manager') {
+        $newStatus = 'pending_manager';
+    } elseif ($row['status'] === 'pending_clarification_employee_accounts') {
+        $newStatus = 'approved_by_manager';
+    } else {
+        error_response('Not pending clarification', 400);
+    }
+
+    $quantity = $updatedQuantity ?? (int) $row['quantity'];
+    $reason = $updatedReason ?? $row['reason'];
+    $managerEmail = $updatedManagerEmail ?? $row['managerEmail'];
+
+    db_execute(
+        'UPDATE purchase_requests SET status = ?, clarification_answer = ?, updated_at = NOW(), quantity = ?, reason = ?, manager_email = ? WHERE id = ?',
+        [$newStatus, $answer, $quantity, $reason, $managerEmail, $id]
+    );
+    log_activity($id, $actorEmail, 'clarification_answered', $answer);
+
+    return enrich_request(get_purchase_request($id));
+}
+
+// Notification-email support -- resolves who should be emailed next and
+// which magic-link actions (if any) make sense for the request's current
+// status, mints single-use tokens, and builds the plain-text mailto body.
+
+function resolve_notification_targets(array $row): ?array
+{
+    $status = $row['status'];
+
+    if ($status === 'pending_manager') {
+        return ['recipients' => [$row['managerEmail']], 'actions' => ['approve', 'reject', 'clarify']];
+    }
+    if ($status === 'pending_clarification_employee_manager') {
+        return ['recipients' => [$row['requesterEmail']], 'actions' => ['respond']];
+    }
+    if ($status === 'pending_vendor_assignment') {
+        $admins = db_query("SELECT email FROM users WHERE role = 'admin'");
+        return ['recipients' => array_map(fn($u) => $u['email'], $admins), 'actions' => []];
+    }
+    if ($status === 'pending_employee_invoice') {
+        return ['recipients' => [$row['requesterEmail']], 'actions' => []];
+    }
+    if ($status === 'approved_by_manager') {
+        $accountsUsers = db_query("SELECT email FROM users WHERE role IN ('admin', 'accounts_manager')");
+        return ['recipients' => array_map(fn($u) => $u['email'], $accountsUsers), 'actions' => ['approve', 'reject', 'clarify']];
+    }
+    if ($status === 'pending_clarification_employee_accounts') {
+        return ['recipients' => [$row['requesterEmail']], 'actions' => ['respond']];
+    }
+    if ($status === 'approved_by_accounts') {
+        $execUsers = db_query("SELECT email FROM users WHERE role IN ('admin', 'accounts_employee')");
+        $recipients = array_values(array_unique(array_merge([$row['requesterEmail']], array_map(fn($u) => $u['email'], $execUsers))));
+        return ['recipients' => $recipients, 'actions' => []];
+    }
+    if (in_array($status, ['rejected_by_manager', 'rejected_by_accounts'])) {
+        return ['recipients' => [$row['requesterEmail']], 'actions' => []];
+    }
+
+    return null; // executed, or unrecognized status -- nothing left to notify
+}
+
+function create_action_token(int $requestId, string $action, string $actorEmail, string $expectedStatus): string
+{
+    $token = bin2hex(random_bytes(24));
+    db_execute(
+        'INSERT INTO email_action_tokens (token, purchase_request_id, action, actor_email, expected_status, expires_at)
+         VALUES (?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 30 DAY))',
+        [$token, $requestId, $action, $actorEmail, $expectedStatus]
+    );
+    return $token;
+}
+
+function notification_body(array $row, array $magicLinks, string $viewLink): string
+{
+    $actionLabels = [
+        'approve' => 'الموافقة على الطلب',
+        'reject' => 'رفض الطلب',
+        'clarify' => 'طلب توضيح',
+        'respond' => 'الرد على الاستفسار',
+    ];
+
+    $lines = [];
+    $lines[] = 'تفاصيل الطلب';
+    $lines[] = str_repeat('-', 24);
+    $lines[] = 'رقم الطلب: ' . $row['requestNumber'];
+    $lines[] = 'النوع: ' . ($row['type'] === 'refund' ? 'طلب استرداد' : 'طلب شراء');
+    $lines[] = 'مقدم الطلب: ' . $row['requesterEmail'];
+    $lines[] = 'القسم: ' . $row['department'];
+    $lines[] = 'السبب/الوصف: ' . $row['reason'];
+    $lines[] = 'الكمية: ' . $row['quantity'];
+    if ($row['estimatedAmount'] !== null) {
+        $lines[] = 'المبلغ التقديري: ' . $row['estimatedAmount'];
+    }
+    if ($row['quotationAmount'] !== null) {
+        $lines[] = ($row['type'] === 'refund' ? 'إجمالي الفاتورة: ' : 'مبلغ عرض السعر: ') . $row['quotationAmount'];
+    }
+    $lines[] = '';
+
+    foreach ($magicLinks as $action => $url) {
+        $lines[] = ($actionLabels[$action] ?? $action) . ':';
+        $lines[] = $url;
+        $lines[] = '';
+    }
+
+    $lines[] = 'أو افتح الطلب مباشرة في النظام:';
+    $lines[] = $viewLink;
+
+    return implode("\n", $lines);
+}
+
+// POST /purchase-requests/{id}/notification-email
+route('POST', '/purchase-requests/{id}/notification-email', function ($params) {
+    require_auth();
+    $id = (int) $params['id'];
+    $row = get_purchase_request($id);
+    if (!$row) error_response('Request not found', 404);
+
+    $target = resolve_notification_targets($row);
+    if (!$target || empty($target['recipients'])) {
+        error_response('No notification applicable for the current status', 400);
+    }
+
+    $baseUrl = rtrim(config()['app_base_url'] ?? '', '/');
+    // Best-effort actor attribution for the activity log: the specific
+    // person for single-recipient steps (manager/requester), or the first
+    // person in a shared role (admin/accounts) since any of them may click.
+    $tokenActorEmail = $target['recipients'][0];
+
+    $magicLinks = [];
+    foreach ($target['actions'] as $action) {
+        $token = create_action_token($id, $action, $tokenActorEmail, $row['status']);
+        $magicLinks[$action] = $baseUrl . '/magic/' . $token;
+    }
+    $viewLink = $baseUrl . '/requests/' . $id;
+
+    json_response([
+        'to' => implode(',', $target['recipients']),
+        'bcc' => 's.elkherbawy@qoyod.com',
+        'subject' => 'طلب ' . ($row['type'] === 'refund' ? 'استرداد' : 'شراء') . ' - ' . $row['requestNumber'],
+        'body' => notification_body($row, $magicLinks, $viewLink),
+    ]);
+});
+
 // GET /purchase-requests
 route('GET', '/purchase-requests', function () {
     require_auth();
@@ -132,33 +371,7 @@ route('POST', '/purchase-requests/{id}/approve', function ($params) {
     if (!$row) error_response('Request not found', 404);
     $body = read_json_body();
     $actorEmail = current_user_email() ?? $row['managerEmail'];
-
-    if (in_array($row['status'], ['pending_manager', 'pending_clarification_employee_manager'])) {
-        // Purchase requests always go through the admin next (even reorders
-        // with a known vendor) so a fresh quotation can be attached before
-        // accounts sees it. Refund requests instead go back to the employee
-        // to attach their invoice.
-        $newStatus = $row['type'] === 'refund' ? 'pending_employee_invoice' : 'pending_vendor_assignment';
-        $actorNote = $body['note'] ?? 'تمت الموافقة من المدير';
-    } elseif (in_array($row['status'], ['approved_by_manager', 'pending_clarification_employee_accounts'])) {
-        $newStatus = 'approved_by_accounts';
-        $actorNote = $body['note'] ?? 'تمت الموافقة من مدير الحسابات';
-    } else {
-        error_response('Cannot approve in current status', 400);
-    }
-
-    db_execute(
-        'UPDATE purchase_requests SET status = ?, manager_note = ?, accounts_note = ?, updated_at = NOW() WHERE id = ?',
-        [
-            $newStatus,
-            in_array($newStatus, ['approved_by_manager', 'pending_vendor_assignment', 'pending_employee_invoice'], true) ? ($body['note'] ?? null) : $row['managerNote'],
-            $newStatus === 'approved_by_accounts' ? ($body['note'] ?? null) : $row['accountsNote'],
-            $id,
-        ]
-    );
-    log_activity($id, $actorEmail, 'approved', $actorNote);
-
-    json_response(enrich_request(get_purchase_request($id)));
+    json_response(perform_approve($id, $actorEmail, $body['note'] ?? null));
 });
 
 // POST /purchase-requests/{id}/assign-vendor
@@ -227,27 +440,7 @@ route('POST', '/purchase-requests/{id}/reject', function ($params) {
     if (!$row) error_response('Request not found', 404);
     $body = read_json_body();
     $actorEmail = current_user_email() ?? $row['managerEmail'];
-
-    if (in_array($row['status'], ['pending_manager', 'pending_clarification_employee_manager'])) {
-        $newStatus = 'rejected_by_manager';
-    } elseif (in_array($row['status'], ['approved_by_manager', 'pending_clarification_employee_accounts'])) {
-        $newStatus = 'rejected_by_accounts';
-    } else {
-        error_response('Cannot reject in current status', 400);
-    }
-
-    db_execute(
-        'UPDATE purchase_requests SET status = ?, manager_note = ?, accounts_note = ?, updated_at = NOW() WHERE id = ?',
-        [
-            $newStatus,
-            $newStatus === 'rejected_by_manager' ? ($body['note'] ?? null) : $row['managerNote'],
-            $newStatus === 'rejected_by_accounts' ? ($body['note'] ?? null) : $row['accountsNote'],
-            $id,
-        ]
-    );
-    log_activity($id, $actorEmail, 'rejected', $body['note'] ?? 'تم رفض الطلب');
-
-    json_response(enrich_request(get_purchase_request($id)));
+    json_response(perform_reject($id, $actorEmail, $body['note'] ?? null));
 });
 
 // POST /purchase-requests/{id}/clarify
@@ -257,24 +450,8 @@ route('POST', '/purchase-requests/{id}/clarify', function ($params) {
     $row = get_purchase_request($id);
     if (!$row) error_response('Request not found', 404);
     $body = read_json_body();
-    $note = $body['note'] ?? null;
     $actorEmail = current_user_email() ?? $row['managerEmail'];
-
-    if ($row['status'] === 'pending_manager') {
-        $newStatus = 'pending_clarification_employee_manager';
-    } elseif ($row['status'] === 'approved_by_manager') {
-        $newStatus = 'pending_clarification_employee_accounts';
-    } else {
-        error_response('Cannot request clarification in current status', 400);
-    }
-
-    db_execute(
-        'UPDATE purchase_requests SET status = ?, clarification_question = ?, clarification_answer = NULL, updated_at = NOW() WHERE id = ?',
-        [$newStatus, $note, $id]
-    );
-    log_activity($id, $actorEmail, 'clarification_requested', $note);
-
-    json_response(enrich_request(get_purchase_request($id)));
+    json_response(perform_clarify($id, $actorEmail, $body['note'] ?? null));
 });
 
 // POST /purchase-requests/{id}/respond
@@ -288,25 +465,14 @@ route('POST', '/purchase-requests/{id}/respond', function ($params) {
     $row = get_purchase_request($id);
     if (!$row) error_response('Request not found', 404);
 
-    if ($row['status'] === 'pending_clarification_employee_manager') {
-        $newStatus = 'pending_manager';
-    } elseif ($row['status'] === 'pending_clarification_employee_accounts') {
-        $newStatus = 'approved_by_manager';
-    } else {
-        error_response('Not pending clarification', 400);
-    }
-
-    $quantity = isset($body['updatedQuantity']) && $body['updatedQuantity'] ? (int) $body['updatedQuantity'] : (int) $row['quantity'];
-    $reason = isset($body['updatedReason']) && $body['updatedReason'] ? (string) $body['updatedReason'] : $row['reason'];
-    $managerEmail = isset($body['updatedManagerEmail']) && $body['updatedManagerEmail'] ? (string) $body['updatedManagerEmail'] : $row['managerEmail'];
-
-    db_execute(
-        'UPDATE purchase_requests SET status = ?, clarification_answer = ?, updated_at = NOW(), quantity = ?, reason = ?, manager_email = ? WHERE id = ?',
-        [$newStatus, $answer, $quantity, $reason, $managerEmail, $id]
-    );
-    log_activity($id, $row['requesterEmail'], 'clarification_answered', $answer);
-
-    json_response(enrich_request(get_purchase_request($id)));
+    json_response(perform_respond(
+        $id,
+        $row['requesterEmail'],
+        $answer,
+        isset($body['updatedQuantity']) && $body['updatedQuantity'] ? (int) $body['updatedQuantity'] : null,
+        isset($body['updatedReason']) && $body['updatedReason'] ? (string) $body['updatedReason'] : null,
+        isset($body['updatedManagerEmail']) && $body['updatedManagerEmail'] ? (string) $body['updatedManagerEmail'] : null
+    ));
 });
 
 // POST /purchase-requests/{id}/execute

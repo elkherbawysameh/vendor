@@ -110,6 +110,23 @@ CREATE TABLE IF NOT EXISTS request_activities (
   INDEX idx_ra_request (request_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Single-use magic-link tokens embedded in notification emails so a
+-- recipient can approve/reject/clarify/respond without logging in. A token
+-- is only honored while the request's live status still equals
+-- expected_status, so it auto-invalidates once the request moves on.
+CREATE TABLE IF NOT EXISTS email_action_tokens (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  token VARCHAR(64) NOT NULL UNIQUE,
+  purchase_request_id INT UNSIGNED NOT NULL,
+  action VARCHAR(32) NOT NULL,
+  actor_email VARCHAR(255) NOT NULL,
+  expected_status VARCHAR(64) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  expires_at DATETIME NOT NULL,
+  used_at DATETIME NULL,
+  INDEX idx_eat_request (purchase_request_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Roles are looked up from this table instead of being hardcoded in code.
 -- Any @qoyod.com email that logs in but has no row here defaults to "employee".
 CREATE TABLE IF NOT EXISTS users (

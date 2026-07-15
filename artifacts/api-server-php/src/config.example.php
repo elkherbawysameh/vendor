@@ -26,4 +26,10 @@ return [
     // https://<your-domain>/<base_path minus "/api">/api/index.php/api/auth/google/callback
     'google_client_id' => getenv('GOOGLE_CLIENT_ID') ?: '',
     'google_client_secret' => getenv('GOOGLE_CLIENT_SECRET') ?: '',
+
+    // Base URL of the deployed frontend used to build links inside
+    // notification emails (magic-action links and plain "open in app"
+    // links). Intentionally the GitHub Pages staging URL, not the
+    // production Hostinger domain, per product requirement.
+    'app_base_url' => getenv('APP_BASE_URL') ?: 'https://elkherbawysameh.github.io/vendor',
 ];

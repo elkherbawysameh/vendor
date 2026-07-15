@@ -12,6 +12,7 @@ import NewRequestPage from '@/pages/requests-new';
 import RequestDetail from '@/pages/requests-[id]';
 import RequestPrintPage from '@/pages/requests-print-[id]';
 import RefundNewPage from '@/pages/refund-new';
+import MagicActionPage from '@/pages/magic-action';
 import VendorsPage from '@/pages/vendors';
 import NewVendorPage from '@/pages/vendors-new';
 import VendorDetail from '@/pages/vendors-[id]';
@@ -44,6 +45,7 @@ function Router() {
     <Switch>
       <Route path="/login" component={LoginPage} />
       <Route path="/requests/:id/print" component={RequestPrintPage} />
+      <Route path="/magic/:token" component={MagicActionPage} />
       <Route path="/" nest>
         <AppLayout>
           <Switch>

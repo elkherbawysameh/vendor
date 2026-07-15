@@ -15,6 +15,7 @@ import { useLocation } from "wouter";
 import { ArrowLeft, CheckCircle2, ChevronLeft } from "lucide-react";
 import { useState } from "react";
 import { Link } from "wouter";
+import { SendNotificationButton } from "@/components/SendNotificationButton";
 
 const requestSchema = z.object({
   department: z.string().min(1, "Department is required"),
@@ -112,6 +113,9 @@ export default function NewRequestPage() {
               <Link href="/requests">
                 <Button variant="outline" className="w-full sm:w-auto">Back to Requests</Button>
               </Link>
+            </div>
+            <div className="flex justify-center">
+              <SendNotificationButton requestId={successData.id} />
             </div>
           </CardContent>
         </Card>

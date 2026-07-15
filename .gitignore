@@ -50,3 +50,7 @@ Thumbs.db
 
 # PHP API server secrets
 artifacts/api-server-php/src/config.php
+
+# Local Hostinger deploy staging (manual upload package, not source)
+/hostinger-deploy/
+/hostinger-deploy.zip

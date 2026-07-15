@@ -34,6 +34,7 @@ require __DIR__ . '/../src/routes/vendorCategories.php';
 require __DIR__ . '/../src/routes/vendorDocumentTypes.php';
 require __DIR__ . '/../src/routes/vendors.php';
 require __DIR__ . '/../src/routes/purchaseRequests.php';
+require __DIR__ . '/../src/routes/magicActions.php';
 require __DIR__ . '/../src/routes/dashboard.php';
 require __DIR__ . '/../src/routes/reports.php';
 require __DIR__ . '/../src/routes/policies.php';
